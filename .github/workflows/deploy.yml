@@ -7,6 +7,11 @@ on:
 
 env:
   IMAGE_NAME: skala-chip-backend
+  HARBOR_REGISTRY: amdp-registry.skala-ai.com
+  HARBOR_PROJECT: skala26a-ai3
+  AWS_REGION: ap-northeast-2
+  EKS_CLUSTER_NAME: skala-2025
+  NAMESPACE: skala3-finalproj-class3-team10
 
 jobs:
   deploy:
@@ -18,7 +23,7 @@ jobs:
 
       - name: Login to Harbor
         run: |
-          echo "${{ secrets.HARBOR_PASSWORD }}" | docker login ${{ secrets.HARBOR_REGISTRY }} \
+          echo "${{ secrets.HARBOR_PASSWORD }}" | docker login ${{ env.HARBOR_REGISTRY }} \
             -u "${{ secrets.HARBOR_USERNAME }}" \
             --password-stdin
 
@@ -29,8 +34,8 @@ jobs:
         run: |
           docker buildx build \
             --platform linux/amd64 \
-            -t ${{ secrets.HARBOR_REGISTRY }}/${{ secrets.HARBOR_PROJECT }}/${{ env.IMAGE_NAME }}:${{ github.sha }} \
-            -t ${{ secrets.HARBOR_REGISTRY }}/${{ secrets.HARBOR_PROJECT }}/${{ env.IMAGE_NAME }}:latest \
+            -t ${{ env.HARBOR_REGISTRY }}/${{ env.HARBOR_PROJECT }}/${{ env.IMAGE_NAME }}:${{ github.sha }} \
+            -t ${{ env.HARBOR_REGISTRY }}/${{ env.HARBOR_PROJECT }}/${{ env.IMAGE_NAME }}:latest \
             --push .
 
       - name: Configure AWS credentials
@@ -38,19 +43,19 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION }}
+          aws-region: ${{ env.AWS_REGION }}
 
       - name: Update kubeconfig
         run: |
           aws eks update-kubeconfig \
-            --region ${{ secrets.AWS_REGION }} \
-            --name ${{ secrets.EKS_CLUSTER_NAME }}
+            --region ${{ env.AWS_REGION }} \
+            --name ${{ env.EKS_CLUSTER_NAME }}
 
       - name: Deploy to EKS
         run: |
           kubectl set image deployment/skala-chip-backend \
-            skala-chip-backend=${{ secrets.HARBOR_REGISTRY }}/${{ secrets.HARBOR_PROJECT }}/${{ env.IMAGE_NAME }}:${{ github.sha }} \
-            -n ${{ secrets.NAMESPACE }}
+            skala-chip-backend=${{ env.HARBOR_REGISTRY }}/${{ env.HARBOR_PROJECT }}/${{ env.IMAGE_NAME }}:${{ github.sha }} \
+            -n ${{ env.NAMESPACE }}
 
           kubectl rollout status deployment/skala-chip-backend \
-            -n ${{ secrets.NAMESPACE }}
+            -n ${{ env.NAMESPACE }}
