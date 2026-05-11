@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: skala-chip-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: skala-chip-backend
+  template:
+    metadata:
+      labels:
+        app: skala-chip-backend
+    spec:
+      containers:
+        - name: skala-chip-backend
+          image: amdp-registry.skala-ai.com/skala26a-ai3/skala-chip-backend:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
