@@ -8,6 +8,8 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -22,6 +24,8 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "\"user\"")
 @Getter
+@Builder
+@AllArgsConstructor(access = AccessLevel.PRIVATE)
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class User {
 
@@ -57,4 +61,12 @@ public class User {
 
     @Column(name = "last_login")
     private LocalDateTime lastLogin;
+
+    public void updateLastLogin() {
+        this.lastLogin = LocalDateTime.now();
+    }
+
+    public void updateRole(UserRole newRole) {
+        this.role = newRole;
+    }
 }

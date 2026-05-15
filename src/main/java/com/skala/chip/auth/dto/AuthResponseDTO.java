@@ -33,4 +33,13 @@ public class AuthResponseDTO {
         // user_role.role_name 값. 클라이언트가 권한별 UI를 분기하는 데 사용된다.
         private String role;
     }
+
+    @Getter
+    @Builder
+    @AllArgsConstructor(access = AccessLevel.PRIVATE)
+    public static class SignUpResponse {
+        private String userId;
+        private String username;
+        private String email;
+    }
 }

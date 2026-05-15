@@ -4,8 +4,11 @@ import com.skala.chip.auth.dto.AuthRequestDTO;
 import com.skala.chip.auth.dto.AuthResponseDTO;
 import com.skala.chip.auth.service.AuthService;
 import com.skala.chip.common.ApiResponse;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -19,6 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
  * Controller에서는 입력값 검증(@Valid)만 수행하고,
  * 인증 비즈니스 로직은 AuthService에 위임한다.
  */
+@Tag(name = "Auth", description = "인증 API")
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
@@ -37,9 +41,18 @@ public class AuthController {
      * 2. AuthService.login()에서 사용자 조회 → 비밀번호 검증 → JWT 발급 (Commit 4)
      * 3. 발급된 JWT를 ApiResponse로 감싸서 반환
      */
+    @Operation(summary = "로그인")
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<AuthResponseDTO.LoginResponse>> login(
             @Valid @RequestBody AuthRequestDTO.LoginRequest request) {
         return ResponseEntity.ok(ApiResponse.success(authService.login(request)));
+    }
+
+    @Operation(summary = "회원가입")
+    @PostMapping("/signup")
+    public ResponseEntity<ApiResponse<AuthResponseDTO.SignUpResponse>> signUp(
+            @Valid @RequestBody AuthRequestDTO.SignUpRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.created(authService.signUp(request)));
     }
 }

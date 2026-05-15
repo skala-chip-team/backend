@@ -21,4 +21,8 @@ public interface UserRepository extends JpaRepository<User, String> {
      * 호출부에서 명시적으로 존재 여부를 처리하도록 강제한다.
      */
     Optional<User> findByEmail(String email);
+
+    boolean existsByEmail(String email);
+
+    boolean existsByUsername(String username);
 }

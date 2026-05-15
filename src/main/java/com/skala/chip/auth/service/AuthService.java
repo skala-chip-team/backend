@@ -18,4 +18,6 @@ public interface AuthService {
      * @return JWT Access Token과 사용자 정보가 담긴 LoginResponse
      */
     AuthResponseDTO.LoginResponse login(AuthRequestDTO.LoginRequest request);
+
+    AuthResponseDTO.SignUpResponse signUp(AuthRequestDTO.SignUpRequest request);
 }

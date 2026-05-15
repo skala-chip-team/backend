@@ -2,6 +2,7 @@ package com.skala.chip.auth.dto;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -27,6 +28,22 @@ public class AuthRequestDTO {
 
         // 평문 비밀번호는 서비스 레이어에서 BCrypt 해시값과 비교 후 즉시 폐기된다
         @NotBlank
+        private String password;
+    }
+
+    @Getter
+    @NoArgsConstructor
+    public static class SignUpRequest {
+
+        @NotBlank
+        private String username;
+
+        @NotBlank
+        @Email
+        private String email;
+
+        @NotBlank
+        @Size(min = 8)
         private String password;
     }
 }

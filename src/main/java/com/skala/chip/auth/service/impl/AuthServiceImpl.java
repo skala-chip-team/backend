@@ -4,13 +4,23 @@ import com.skala.chip.auth.dto.AuthRequestDTO;
 import com.skala.chip.auth.dto.AuthResponseDTO;
 import com.skala.chip.auth.jwt.JwtProvider;
 import com.skala.chip.auth.service.AuthService;
+import com.skala.chip.exception.code.ErrorCode;
+import com.skala.chip.exception.custom.BusinessException;
+import com.skala.chip.exception.custom.DuplicateEmailException;
+import com.skala.chip.exception.custom.DuplicateUsernameException;
 import com.skala.chip.exception.custom.InactiveUserException;
 import com.skala.chip.exception.custom.InvalidCredentialsException;
 import com.skala.chip.user.domain.User;
+import com.skala.chip.user.domain.UserRole;
 import com.skala.chip.user.repository.UserRepository;
+import com.skala.chip.user.repository.UserRoleRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
+import java.util.UUID;
 
 /**
  * 로그인 인증 비즈니스 로직 구현체.
@@ -27,6 +37,7 @@ import org.springframework.stereotype.Service;
 public class AuthServiceImpl implements AuthService {
 
     private final UserRepository userRepository;
+    private final UserRoleRepository userRoleRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtProvider jwtProvider;
 
@@ -39,6 +50,7 @@ public class AuthServiceImpl implements AuthService {
      * @throws InactiveUserException       비활성 계정 로그인 시도
      */
     @Override
+    @Transactional
     public AuthResponseDTO.LoginResponse login(AuthRequestDTO.LoginRequest request) {
 
         // 1. 이메일로 사용자 조회
@@ -60,19 +72,56 @@ public class AuthServiceImpl implements AuthService {
             throw new InvalidCredentialsException();
         }
 
-        // 4. JWT Access Token 발급
+        // 4. 마지막 로그인 시간 갱신
+        user.updateLastLogin();
+
+        // 5. JWT Access Token 발급
         // Claim에 email(sub)과 role을 담아 이후 요청에서 DB 조회 없이 사용자를 식별한다.
         String accessToken = jwtProvider.generateToken(
                 user.getEmail(),
                 user.getRole().getRoleName()
         );
 
-        // 5. 클라이언트가 Authorization 헤더를 구성할 수 있도록 tokenType도 함께 반환한다.
+        // 6. 클라이언트가 Authorization 헤더를 구성할 수 있도록 tokenType도 함께 반환한다.
         return AuthResponseDTO.LoginResponse.builder()
                 .accessToken(accessToken)
                 .tokenType("Bearer")
                 .username(user.getUsername())
                 .role(user.getRole().getRoleName())
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public AuthResponseDTO.SignUpResponse signUp(AuthRequestDTO.SignUpRequest request) {
+
+        if (userRepository.existsByEmail(request.getEmail())) {
+            throw new DuplicateEmailException();
+        }
+
+        if (userRepository.existsByUsername(request.getUsername())) {
+            throw new DuplicateUsernameException();
+        }
+
+        UserRole userRole = userRoleRepository.findByRoleName("WORKER")
+                .orElseThrow(() -> new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR));
+
+        User user = User.builder()
+                .userId(UUID.randomUUID().toString())
+                .role(userRole)
+                .username(request.getUsername())
+                .email(request.getEmail())
+                .passwordHash(passwordEncoder.encode(request.getPassword()))
+                .isActive(true)
+                .createdAt(LocalDateTime.now())
+                .build();
+
+        userRepository.save(user);
+
+        return AuthResponseDTO.SignUpResponse.builder()
+                .userId(user.getUserId())
+                .username(user.getUsername())
+                .email(user.getEmail())
                 .build();
     }
 }
