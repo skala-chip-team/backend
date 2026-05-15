@@ -2,6 +2,7 @@ package com.skala.chip.exception.handler;
 
 import com.skala.chip.common.ApiResponse;
 import com.skala.chip.exception.code.ErrorCode;
+import com.skala.chip.exception.custom.BusinessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -18,6 +19,21 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
  */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    /**
+     * 모든 비즈니스 예외(BusinessException 하위)를 통합 처리.
+     *
+     * InvalidCredentialsException, InactiveUserException 등
+     * BusinessException을 상속한 모든 예외가 여기서 처리된다.
+     * HTTP 상태코드는 ErrorCode.getCode()에서 가져오므로
+     * 예외가 추가돼도 이 핸들러를 수정할 필요가 없다.
+     */
+    @ExceptionHandler(BusinessException.class)
+    public ResponseEntity<ApiResponse<?>> handleBusinessException(BusinessException e) {
+        ErrorCode errorCode = e.getErrorCode();
+        return ResponseEntity.status(errorCode.getCode())
+                .body(ApiResponse.fail(errorCode));
+    }
 
     /**
      * @Valid 검증 실패 시 발생하는 예외 처리.
