@@ -2,13 +2,15 @@ package com.skala.chip.auth.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.skala.chip.auth.dto.AuthResponseDTO;
+import com.skala.chip.auth.jwt.JwtAccessDeniedHandler;
+import com.skala.chip.auth.jwt.JwtAuthenticationEntryPoint;
+import com.skala.chip.auth.jwt.JwtProvider;
 import com.skala.chip.auth.service.AuthService;
 import com.skala.chip.exception.custom.InvalidCredentialsException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration;
-import org.springframework.boot.autoconfigure.security.servlet.SecurityFilterAutoConfiguration;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
@@ -25,16 +27,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 /**
  * AuthController 웹 레이어 테스트.
  *
- * Security를 제외하는 이유:
- * @WebMvcTest에 SecurityConfig가 로드되면 JwtAuthenticationFilter가 개입해
- * 컨트롤러 로직 검증 전에 응답이 바뀌는 부작용이 생긴다.
- * 컨트롤러 단위 테스트에서는 Security 동작을 배제하고,
- * 입력값 검증(@Valid) / 응답 구조(ApiResponse) / 예외 응답만 검증한다.
+ * @AutoConfigureMockMvc(addFilters = false)를 사용하는 이유:
+ * SecurityConfig(@EnableWebSecurity)는 @WebMvcTest에서 항상 로드된다.
+ * addFilters = false로 MockMvc에 서블릿 필터를 적용하지 않아
+ * JwtAuthenticationFilter가 요청을 가로채지 않고 컨트롤러까지 도달한다.
+ * SecurityConfig 자체는 로드되므로 의존 Bean(@MockBean)은 여전히 필요하다.
  */
-@WebMvcTest(
-        value = AuthController.class,
-        excludeAutoConfiguration = {SecurityAutoConfiguration.class, SecurityFilterAutoConfiguration.class}
-)
+@WebMvcTest(AuthController.class)
+@AutoConfigureMockMvc(addFilters = false)
 class AuthControllerTest {
 
     @Autowired
@@ -42,6 +42,17 @@ class AuthControllerTest {
 
     @MockBean
     private AuthService authService;
+
+    // SecurityConfig → JwtAuthenticationFilter → JwtProvider 의존 체인 해소
+    @MockBean
+    private JwtProvider jwtProvider;
+
+    // SecurityConfig에서 직접 주입받는 Bean들
+    @MockBean
+    private JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
+
+    @MockBean
+    private JwtAccessDeniedHandler jwtAccessDeniedHandler;
 
     @Autowired
     private ObjectMapper objectMapper;
