@@ -86,6 +86,5 @@ backend
 │   │   └── resources
 │   │       ├── application.yml
 │   │       └── application-local.yml
-│   └── test
 ├── build.gradle
 └── README.md
