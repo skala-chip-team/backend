@@ -40,7 +40,6 @@ class AuthServiceImplTest {
     @Mock
     private JwtProvider jwtProvider;
 
-    // User, UserRole은 protected 생성자이므로 Mockito mock()으로 생성
     private User mockUser;
     private UserRole mockUserRole;
     private AuthRequestDTO.LoginRequest mockRequest;
@@ -54,14 +53,10 @@ class AuthServiceImplTest {
 
     @BeforeEach
     void setUp() {
+        // mock 객체 생성만 수행. stub은 각 테스트에서 필요한 것만 선언해
+        // UnnecessaryStubbingException을 방지한다.
         mockUserRole = mock(UserRole.class);
-        when(mockUserRole.getRoleName()).thenReturn(TEST_ROLE);
-
         mockUser = mock(User.class);
-        when(mockUser.getEmail()).thenReturn(TEST_EMAIL);
-        when(mockUser.getPasswordHash()).thenReturn(HASHED_PASSWORD);
-        when(mockUser.getUsername()).thenReturn(TEST_USERNAME);
-        when(mockUser.getRole()).thenReturn(mockUserRole);
 
         mockRequest = mock(AuthRequestDTO.LoginRequest.class);
         when(mockRequest.getEmail()).thenReturn(TEST_EMAIL);
@@ -72,7 +67,12 @@ class AuthServiceImplTest {
     @DisplayName("로그인 성공 - 유효한 이메일/비밀번호이면 LoginResponse를 반환한다")
     void 로그인_성공() {
         // given
+        when(mockUserRole.getRoleName()).thenReturn(TEST_ROLE);
         when(mockUser.isActive()).thenReturn(true);
+        when(mockUser.getEmail()).thenReturn(TEST_EMAIL);
+        when(mockUser.getPasswordHash()).thenReturn(HASHED_PASSWORD);
+        when(mockUser.getUsername()).thenReturn(TEST_USERNAME);
+        when(mockUser.getRole()).thenReturn(mockUserRole);
         when(userRepository.findByEmail(TEST_EMAIL)).thenReturn(Optional.of(mockUser));
         when(passwordEncoder.matches(TEST_PASSWORD, HASHED_PASSWORD)).thenReturn(true);
         when(jwtProvider.generateToken(TEST_EMAIL, TEST_ROLE)).thenReturn(MOCK_TOKEN);
@@ -90,7 +90,7 @@ class AuthServiceImplTest {
     @Test
     @DisplayName("이메일 없음 - 존재하지 않는 이메일이면 InvalidCredentialsException 발생")
     void 이메일_없음_예외() {
-        // given: 계정 존재 여부 노출 방지를 위해 USER_NOT_FOUND가 아닌 INVALID_CREDENTIALS 발생
+        // given: 이메일 조회 실패만 stub. 이후 단계(비밀번호/JWT)는 도달하지 않으므로 stub 불필요
         when(userRepository.findByEmail(anyString())).thenReturn(Optional.empty());
 
         // when & then
@@ -101,8 +101,9 @@ class AuthServiceImplTest {
     @Test
     @DisplayName("비밀번호 불일치 - BCrypt 검증 실패 시 InvalidCredentialsException 발생")
     void 비밀번호_불일치_예외() {
-        // given
+        // given: JWT 발급 단계에 도달하지 않으므로 jwtProvider stub 불필요
         when(mockUser.isActive()).thenReturn(true);
+        when(mockUser.getPasswordHash()).thenReturn(HASHED_PASSWORD);
         when(userRepository.findByEmail(TEST_EMAIL)).thenReturn(Optional.of(mockUser));
         when(passwordEncoder.matches(TEST_PASSWORD, HASHED_PASSWORD)).thenReturn(false);
 
@@ -114,7 +115,7 @@ class AuthServiceImplTest {
     @Test
     @DisplayName("비활성 계정 - is_active=false이면 비밀번호 검증 전에 InactiveUserException 발생")
     void 비활성_계정_예외() {
-        // given: 비활성 계정은 비밀번호 검증(고비용 BCrypt) 전에 차단
+        // given: 비밀번호/JWT 단계에 도달하지 않으므로 그 이후 stub 불필요
         when(mockUser.isActive()).thenReturn(false);
         when(userRepository.findByEmail(TEST_EMAIL)).thenReturn(Optional.of(mockUser));
 
