@@ -37,6 +37,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtProvider jwtProvider;
 
+    // JwtAuthenticationEntryPoint에서 원인을 읽을 수 있도록 public 상수로 선언
+    public static final String JWT_ERROR_ATTRIBUTE = "jwt_error";
+
     private static final String AUTHORIZATION_HEADER = "Authorization";
     private static final String BEARER_PREFIX = "Bearer ";
 
@@ -55,9 +58,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         // 1. Authorization 헤더에서 Bearer 토큰 추출
         String token = extractToken(request);
 
-        // 2. 토큰이 존재하고 유효한 경우에만 SecurityContext에 등록
-        //    validateToken() 실패(만료/위변조)는 여기서 조용히 넘어가며,
-        //    Commit 6에서 AuthenticationEntryPoint로 세부 응답을 처리할 예정이다.
+        // 2. 토큰 검증 및 SecurityContext 등록
+        //    유효한 토큰이면 인증 정보를 등록하고, 실패 시 원인을 attribute에 저장한다.
+        //    JwtAuthenticationEntryPoint가 attribute를 읽어 만료/위변조를 구분한 응답을 반환한다.
         if (token != null && jwtProvider.validateToken(token)) {
 
             // 3. 토큰 Claim에서 사용자 식별 정보 추출
@@ -80,6 +83,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
 
             SecurityContextHolder.getContext().setAuthentication(authentication);
+
+        } else if (token != null) {
+            // 토큰이 있지만 유효하지 않은 경우: 만료/위변조 원인을 구분해 저장
+            // EntryPoint가 이 attribute를 읽어 클라이언트에 맞는 메시지를 반환한다.
+            if (jwtProvider.isTokenExpired(token)) {
+                request.setAttribute(JWT_ERROR_ATTRIBUTE, "TOKEN_EXPIRED");
+            } else {
+                request.setAttribute(JWT_ERROR_ATTRIBUTE, "INVALID_TOKEN");
+            }
         }
 
         // 6. 인증 성공 여부와 무관하게 다음 필터로 전달

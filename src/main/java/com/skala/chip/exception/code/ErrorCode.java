@@ -20,6 +20,11 @@ public enum ErrorCode {
     UNAUTHORIZED(401, "인증이 필요합니다."),
     FORBIDDEN(403, "접근 권한이 없습니다."),
 
+    // --- JWT ---
+    // 만료와 위변조를 구분하는 이유: 클라이언트가 만료 시 재발급을 시도할 수 있도록 안내하기 위함
+    TOKEN_EXPIRED(401, "만료된 토큰입니다. 다시 로그인해주세요."),
+    INVALID_TOKEN(401, "유효하지 않은 토큰입니다."),
+
     // --- User ---
     USER_NOT_FOUND(404, "사용자를 찾을 수 없습니다."),
     // is_active = false인 계정은 로그인 자체를 차단한다.

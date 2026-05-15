@@ -86,10 +86,31 @@ public class JwtProvider {
             parseClaims(token);
             return true;
         } catch (ExpiredJwtException e) {
-            // TODO: Commit 6 - 만료 토큰 전용 401 응답 처리
+            // 만료 토큰: JwtAuthenticationFilter에서 request attribute로 구분 처리
             return false;
         } catch (JwtException | IllegalArgumentException e) {
             // 위변조 / 잘못된 형식 / 빈 토큰
+            return false;
+        }
+    }
+
+    /**
+     * 토큰이 만료되었는지 여부만 확인.
+     *
+     * validateToken()이 false를 반환한 경우, 이 메서드로 원인을 구분한다.
+     * JwtAuthenticationFilter에서 만료/위변조를 분리해 request attribute에 저장하고,
+     * JwtAuthenticationEntryPoint에서 읽어 클라이언트에 맞는 메시지를 내려준다.
+     *
+     * @param token JWT 문자열 (만료되었을 것으로 의심되는 토큰)
+     * @return 만료된 토큰이면 true, 위변조/형식 오류면 false
+     */
+    public boolean isTokenExpired(String token) {
+        try {
+            parseClaims(token);
+            return false;
+        } catch (ExpiredJwtException e) {
+            return true;
+        } catch (JwtException | IllegalArgumentException e) {
             return false;
         }
     }

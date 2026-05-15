@@ -1,5 +1,7 @@
 package com.skala.chip.config;
 
+import com.skala.chip.auth.jwt.JwtAccessDeniedHandler;
+import com.skala.chip.auth.jwt.JwtAuthenticationEntryPoint;
 import com.skala.chip.auth.jwt.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
@@ -25,6 +27,8 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
+    private final JwtAccessDeniedHandler jwtAccessDeniedHandler;
 
     /**
      * HTTP 보안 정책 설정.
@@ -48,9 +52,13 @@ public class SecurityConfig {
                 .requestMatchers("/", "/health", "/api/auth/**").permitAll()
                 .anyRequest().authenticated()
             )
-            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
-
-        // TODO: Commit 6 - AuthenticationEntryPoint, AccessDeniedHandler 추가 (401/403 세부 처리)
+            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+            .exceptionHandling(ex -> ex
+                // 인증 실패(토큰 없음/만료/위변조) → 401
+                .authenticationEntryPoint(jwtAuthenticationEntryPoint)
+                // 인증 성공이지만 권한 부족 → 403
+                .accessDeniedHandler(jwtAccessDeniedHandler)
+            );
         return http.build();
     }
 
