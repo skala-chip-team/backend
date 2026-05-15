@@ -14,5 +14,8 @@ spring:
         dialect: org.hibernate.dialect.PostgreSQLDialect
 
 jwt:
-  secret: ${JWT_SECRET:skala-chip-secret-key-placeholder}
+  # HS256 서명에 최소 32바이트 이상의 키가 필요하다.
+  # 운영 환경에서는 반드시 JWT_SECRET 환경변수로 안전한 값을 주입할 것.
+  secret: ${JWT_SECRET:skala-chip-secret-key-for-dev-only!!}
+  # Access Token 만료 시간 (ms). 86400000 = 24시간
   expiration: 86400000
