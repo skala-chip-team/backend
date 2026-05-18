@@ -7,7 +7,6 @@ import com.skala.chip.auth.service.AuthService;
 import com.skala.chip.exception.code.ErrorCode;
 import com.skala.chip.exception.custom.BusinessException;
 import com.skala.chip.exception.custom.DuplicateEmailException;
-import com.skala.chip.exception.custom.DuplicateUsernameException;
 import com.skala.chip.exception.custom.InactiveUserException;
 import com.skala.chip.exception.custom.InvalidCredentialsException;
 import com.skala.chip.user.domain.User;
@@ -97,10 +96,6 @@ public class AuthServiceImpl implements AuthService {
 
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new DuplicateEmailException();
-        }
-
-        if (userRepository.existsByUsername(request.getUsername())) {
-            throw new DuplicateUsernameException();
         }
 
         UserRole userRole = userRoleRepository.findByRoleName("WORKER")

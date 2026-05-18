@@ -29,7 +29,6 @@ public enum ErrorCode {
     USER_NOT_FOUND(404, "사용자를 찾을 수 없습니다."),
     INACTIVE_USER(403, "비활성화된 계정입니다."),
     DUPLICATE_EMAIL(409, "이미 사용 중인 이메일입니다."),
-    DUPLICATE_USERNAME(409, "이미 사용 중인 사용자명입니다."),
     ROLE_NOT_FOUND(404, "존재하지 않는 역할입니다."),
 
     // --- Common ---
