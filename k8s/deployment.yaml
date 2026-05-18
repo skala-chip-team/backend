@@ -2,6 +2,8 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: skala-chip-backend
+  namespace: skala3-finalproj-class3-team10
+
 spec:
   replicas: 1
   selector:
@@ -18,3 +20,10 @@ spec:
           imagePullPolicy: Always
           ports:
             - containerPort: 8080
+          env:
+            - name: SPRING_DATASOURCE_URL
+              value: jdbc:postgresql://postgres.skala3-finalproj-class3-team10.svc.cluster.local:5432/skala_chip
+            - name: SPRING_DATASOURCE_USERNAME
+              value: admin
+            - name: SPRING_DATASOURCE_PASSWORD
+              value: admin1234

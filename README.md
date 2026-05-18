@@ -67,6 +67,58 @@
 
 ---
 
+## 팀 공용 PostgreSQL 서버 구성
+
+팀원이 같은 DB를 보게 하려면 한 명의 PC가 아니라 고정 IP를 가진 서버 또는 클라우드 DB에 PostgreSQL을 올리는 방식이 안정적입니다.
+
+### 1. 서버에서 PostgreSQL 실행
+
+서버에 이 저장소를 받은 뒤, `docker-compose.yml`이 있는 위치에서 `.env` 파일을 만듭니다.
+
+```bash
+POSTGRES_DB=skala_chip
+POSTGRES_USER=skala
+POSTGRES_PASSWORD=강한_비밀번호로_변경
+```
+
+현재 `docker-compose.yml`은 기본값으로 `5432` 포트를 외부에 공개합니다.
+
+```bash
+docker compose up -d postgres
+```
+
+### 2. 서버 방화벽 열기
+
+팀원 IP에서만 `5432` 포트 접근을 허용하세요. 모든 인터넷에 DB 포트를 공개하는 것은 피해야 합니다.
+
+예시:
+
+```bash
+# Ubuntu ufw 예시
+sudo ufw allow from 팀원_IP to any port 5432 proto tcp
+```
+
+### 3. 팀원 로컬 앱 접속 설정
+
+팀원은 각자 로컬에서 아래 환경변수를 설정한 뒤 백엔드를 실행합니다.
+
+```bash
+export DB_URL=jdbc:postgresql://서버_IP:5432/skala_chip
+export DB_USERNAME=skala
+export DB_PASSWORD=서버_DB_비밀번호
+```
+
+IntelliJ에서는 Run Configuration의 Environment variables에 같은 값을 넣으면 됩니다.
+
+### 4. 운영 시 권장 사항
+
+- DB 비밀번호는 `skala` 같은 기본값을 사용하지 마세요.
+- 가능하면 AWS RDS, Supabase, Neon 같은 관리형 PostgreSQL을 쓰는 것이 가장 안전합니다.
+- 직접 서버에 Docker로 올린다면 `5432`는 팀원 IP 또는 VPN에서만 접근 가능하게 제한하세요.
+- 서버 DB를 쓰는 환경에서는 `JWT_SECRET`도 환경변수로 주입하세요.
+
+---
+
 ## 프로젝트 구조(미정) - 그러나 해당 구조를 기반으로
 
 ```bash

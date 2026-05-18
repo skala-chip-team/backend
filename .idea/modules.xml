@@ -2,9 +2,8 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/skala-chip-backend.iml" filepath="$PROJECT_DIR$/.idea/modules/skala-chip-backend.iml" group="skala-chip-backend" />
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/skala-chip-backend_main.iml" filepath="$PROJECT_DIR$/.idea/modules/skala-chip-backend_main.iml" group="skala-chip-backend" />
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/skala-chip-backend_test.iml" filepath="$PROJECT_DIR$/.idea/modules/skala-chip-backend_test.iml" group="skala-chip-backend" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/skala-chip-backend.main.iml" filepath="$PROJECT_DIR$/.idea/modules/skala-chip-backend.main.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/skala-chip-backend.test.iml" filepath="$PROJECT_DIR$/.idea/modules/skala-chip-backend.test.iml" />
     </modules>
   </component>
 </project>
