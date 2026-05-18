@@ -27,6 +27,10 @@ public class ApiResponse<T> {
         return new ApiResponse<>(true, 200, "요청 성공", data);
     }
 
+    public static <T> ApiResponse<T> created(T data) {
+        return new ApiResponse<>(true, 201, "생성 성공", data);
+    }
+
     /**
      * ErrorCode enum에서 HTTP 상태코드와 메시지를 가져온다.
      * 메시지를 직접 넘기지 않고 ErrorCode를 사용하는 이유는

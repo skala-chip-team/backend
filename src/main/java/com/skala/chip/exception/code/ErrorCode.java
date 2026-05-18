@@ -27,8 +27,9 @@ public enum ErrorCode {
 
     // --- User ---
     USER_NOT_FOUND(404, "사용자를 찾을 수 없습니다."),
-    // is_active = false인 계정은 로그인 자체를 차단한다.
     INACTIVE_USER(403, "비활성화된 계정입니다."),
+    DUPLICATE_EMAIL(409, "이미 사용 중인 이메일입니다."),
+    ROLE_NOT_FOUND(404, "존재하지 않는 역할입니다."),
 
     // --- Common ---
     INVALID_INPUT(400, "잘못된 요청입니다."),
