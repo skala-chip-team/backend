@@ -1,8 +1,8 @@
 spring:
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/skala_chip}
-    username: ${DB_USERNAME:skala}
-    password: ${DB_PASSWORD:skala}
+    username: ${DB_USERNAME:admin}
+    password: ${DB_PASSWORD:admin1234}
     driver-class-name: org.postgresql.Driver
 
   jpa:
