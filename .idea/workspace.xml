@@ -4,7 +4,13 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="be88423d-9b94-4789-989f-0fd95bbbaa84" name="Changes" comment="" />
+    <list default="true" id="be88423d-9b94-4789-989f-0fd95bbbaa84" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/dataSources/cf8242a5-8e7b-4523-acf0-93bba3a0e672.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/dataSources/cf8242a5-8e7b-4523-acf0-93bba3a0e672.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/dataSources/cf8242a5-8e7b-4523-acf0-93bba3a0e672/storage_v2/_src_/database/skala_chip.rZf6DQ/schema/public.abK9xQ.meta" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/dataSources/cf8242a5-8e7b-4523-acf0-93bba3a0e672/storage_v2/_src_/database/skala_chip.rZf6DQ/schema/public.abK9xQ.meta" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/skala/chip/monitoring/controller/MonitoringController.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/skala/chip/monitoring/controller/MonitoringController.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/skala/chip/monitoring/repository/MachineRepository.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/skala/chip/monitoring/repository/MachineRepository.java" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -85,7 +91,7 @@
     "SHARE_PROJECT_CONFIGURATION_FILES": "true",
     "SHELLCHECK.PATH": "/Users/gimminjae/Library/Application Support/JetBrains/IntelliJIdea2026.1/plugins/Shell Script/shellcheck",
     "Shell Script.gradlew.executor": "Run",
-    "Spring Boot.SkalaChipApplication.executor": "Debug",
+    "Spring Boot.SkalaChipApplication.executor": "Run",
     "com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1": "true",
     "git-widget-placeholder": "feature/machine-monitoring-api",
     "junie.onboarding.icon.badge.shown": "true",
@@ -180,7 +186,7 @@
       <workItem from="1778826218724" duration="26000" />
       <workItem from="1778826273291" duration="7455000" />
       <workItem from="1779063091617" duration="20435000" />
-      <workItem from="1779408424720" duration="4672000" />
+      <workItem from="1779408424720" duration="7891000" />
     </task>
     <servers />
   </component>
