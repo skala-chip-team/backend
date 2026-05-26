@@ -8,12 +8,15 @@ import com.skala.chip.monitoring.dto.QueueResponseDTO;
 import com.skala.chip.monitoring.dto.ScheduleResponseDTO;
 import com.skala.chip.monitoring.dto.StatisticsResponseDTO;
 import com.skala.chip.monitoring.dto.UnitResponseDTO;
+import com.skala.chip.monitoring.dto.WorkStatusResponseDTO;
 import com.skala.chip.monitoring.service.DelayRiskService;
 import com.skala.chip.monitoring.service.MachineService;
 import com.skala.chip.monitoring.service.QueueService;
 import com.skala.chip.monitoring.service.ScheduleService;
 import com.skala.chip.monitoring.service.StatisticsService;
 import com.skala.chip.monitoring.service.UnitService;
+import com.skala.chip.monitoring.service.WorkStatusService;
+import io.swagger.v3.oas.annotations.Operation;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
@@ -30,12 +33,15 @@ public class MonitoringController {
     private final DelayRiskService delayRiskService;
     private final QueueService queueService;
     private final StatisticsService statisticsService;
+    private final WorkStatusService workStatusService;
 
+    @Operation(summary = "전체 장비 조회")
     @GetMapping("/machines")
     public ApiResponse<List<MachineResponseDTO.MachineInfo>> getMachines() {
         return ApiResponse.success(machineService.getMachines());
     }
 
+    @Operation(summary = "특정 장비 조회")
     @GetMapping("/machines/{machineId}")
     public ApiResponse<MachineResponseDTO.MachineInfo> getMachine(
             @PathVariable String machineId
@@ -43,6 +49,7 @@ public class MonitoringController {
         return ApiResponse.success(machineService.getMachine(machineId));
     }
 
+    @Operation(summary = "장비 상태 변경")
     @PatchMapping("/machines/{machineId}/status")
     public ApiResponse<MachineResponseDTO.MachineInfo> updateMachineStatus(
             @PathVariable String machineId,
@@ -56,11 +63,13 @@ public class MonitoringController {
         );
     }
 
+    @Operation(summary = "전체 유닛 조회")
     @GetMapping("/units")
     public ApiResponse<List<UnitResponseDTO.UnitInfo>> getUnits() {
         return ApiResponse.success(unitService.getUnits());
     }
 
+    @Operation(summary = "특정 유닛 조회")
     @GetMapping("/units/{unitId}")
     public ApiResponse<UnitResponseDTO.UnitInfo> getUnit(
             @PathVariable String unitId
@@ -68,16 +77,19 @@ public class MonitoringController {
         return ApiResponse.success(unitService.getUnit(unitId));
     }
 
+    @Operation(summary = "전체 스케줄 조회")
     @GetMapping("/schedules")
     public ApiResponse<List<ScheduleResponseDTO.ScheduleInfo>> getSchedules() {
         return ApiResponse.success(scheduleService.getSchedules());
     }
 
+    @Operation(summary = "활성 스케줄 조회")
     @GetMapping("/schedules/active")
     public ApiResponse<List<ScheduleResponseDTO.ScheduleInfo>> getActiveSchedules() {
         return ApiResponse.success(scheduleService.getActiveSchedules());
     }
 
+    @Operation(summary = "장비별 스케줄 조회")
     @GetMapping("/machines/{machineId}/schedules")
     public ApiResponse<List<ScheduleResponseDTO.ScheduleInfo>> getMachineSchedules(
             @PathVariable String machineId
@@ -87,6 +99,7 @@ public class MonitoringController {
         );
     }
 
+    @Operation(summary = "유닛별 스케줄 조회")
     @GetMapping("/units/{unitId}/schedules")
     public ApiResponse<List<ScheduleResponseDTO.ScheduleInfo>> getUnitSchedules(
             @PathVariable String unitId
@@ -96,16 +109,19 @@ public class MonitoringController {
         );
     }
 
+    @Operation(summary = "전체 위험도 조회")
     @GetMapping("/risks")
     public ApiResponse<List<DelayRiskResponseDTO.RiskInfo>> getRisks() {
         return ApiResponse.success(delayRiskService.getRisks());
     }
 
+    @Operation(summary = "고위험 위험도 조회")
     @GetMapping("/risks/high")
     public ApiResponse<List<DelayRiskResponseDTO.RiskInfo>> getHighRisks() {
         return ApiResponse.success(delayRiskService.getHighRisks());
     }
 
+    @Operation(summary = "유닛별 위험도 조회")
     @GetMapping("/units/{unitId}/risks")
     public ApiResponse<List<DelayRiskResponseDTO.RiskInfo>> getUnitRisks(
             @PathVariable String unitId
@@ -115,6 +131,7 @@ public class MonitoringController {
         );
     }
 
+    @Operation(summary = "구역별 위험도 조회")
     @GetMapping("/districts/{districtId}/risks")
     public ApiResponse<List<DelayRiskResponseDTO.RiskInfo>> getDistrictRisks(
             @PathVariable String districtId
@@ -124,11 +141,13 @@ public class MonitoringController {
         );
     }
 
+    @Operation(summary = "전체 큐 조회")
     @GetMapping("/queues")
     public ApiResponse<List<QueueResponseDTO.QueueInfo>> getQueues() {
         return ApiResponse.success(queueService.getQueues());
     }
 
+    @Operation(summary = "STEP별 큐 조회")
     @GetMapping("/queues/{stepId}")
     public ApiResponse<List<QueueResponseDTO.QueueInfo>> getStepQueues(
             @PathVariable String stepId
@@ -138,6 +157,7 @@ public class MonitoringController {
         );
     }
 
+    @Operation(summary = "구역별 큐 조회")
     @GetMapping("/districts/{districtId}/queues")
     public ApiResponse<List<QueueResponseDTO.QueueInfo>> getDistrictQueues(
             @PathVariable String districtId
@@ -147,6 +167,7 @@ public class MonitoringController {
         );
     }
 
+    @Operation(summary = "유닛별 큐 조회")
     @GetMapping("/units/{unitId}/queues")
     public ApiResponse<List<QueueResponseDTO.QueueInfo>> getUnitQueues(
             @PathVariable String unitId
@@ -156,10 +177,51 @@ public class MonitoringController {
         );
     }
 
+    @Operation(summary = "장비 통계 조회")
     @GetMapping("/statistics/machines")
     public ApiResponse<StatisticsResponseDTO.MachineStatistics> getMachineStatistics() {
         return ApiResponse.success(
                 statisticsService.getMachineStatistics()
+        );
+    }
+
+    @Operation(summary = "전체 작업 상태 조회")
+    @GetMapping("/work-status")
+    public ApiResponse<List<WorkStatusResponseDTO.WorkStatusInfo>> getWorkStatuses() {
+
+        return ApiResponse.success(
+                workStatusService.getWorkStatuses()
+        );
+    }
+
+    @Operation(summary = "진행 중 작업 상태 조회")
+    @GetMapping("/work-status/active")
+    public ApiResponse<List<WorkStatusResponseDTO.WorkStatusInfo>> getActiveWorkStatuses() {
+
+        return ApiResponse.success(
+                workStatusService.getActiveWorkStatuses()
+        );
+    }
+
+    @Operation(summary = "장비별 작업 상태 조회")
+    @GetMapping("/machines/{machineId}/work-status")
+    public ApiResponse<List<WorkStatusResponseDTO.WorkStatusInfo>> getMachineWorkStatuses(
+            @PathVariable String machineId
+    ) {
+
+        return ApiResponse.success(
+                workStatusService.getMachineWorkStatuses(machineId)
+        );
+    }
+
+    @Operation(summary = "구역별 작업 상태 조회")
+    @GetMapping("/districts/{districtId}/work-status")
+    public ApiResponse<List<WorkStatusResponseDTO.WorkStatusInfo>> getDistrictWorkStatuses(
+            @PathVariable String districtId
+    ) {
+
+        return ApiResponse.success(
+                workStatusService.getDistrictWorkStatuses(districtId)
         );
     }
 }
