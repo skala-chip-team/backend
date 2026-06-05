@@ -5,11 +5,9 @@ import java.time.LocalDateTime;
 /**
  * 재조정 전략 선택 확정 결과.
  */
-public record RescheduleSelectionResponse(
-        String selectionId,
+public record SelectRescheduleResponse(
         String groupId,
         String strategy,
-        String status,
-        LocalDateTime selectedAt,
-        String groupStatus
+        String groupStatus,
+        LocalDateTime actedAt
 ) {}

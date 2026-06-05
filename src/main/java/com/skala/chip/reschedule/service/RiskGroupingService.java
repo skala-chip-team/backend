@@ -40,15 +40,17 @@ public class RiskGroupingService {
 
     private static final String STATUS_PENDING = "pending";
 
+    // 위험 그룹핑 임계값 (하드코딩, 사용자 변경 대상 아님)
+    private static final double RISK_THRESHOLD = 0.7;
+
     private final DelayRiskRepository delayRiskRepository;
     private final ProcessStepOrderRepository processStepOrderRepository;
-    private final RescheduleConfigService configService;
     private final RescheduleGroupRepository rescheduleGroupRepository;
 
     @Transactional
     public RiskGroupingResponse groupRisks(LocalDateTime detectionTime) {
 
-        double threshold = configService.getRiskThreshold();
+        double threshold = RISK_THRESHOLD;
 
         // 기준 시각 결정 (미지정 시 최신 위험 시각 사용)
         LocalDateTime baseTime = (detectionTime != null)
