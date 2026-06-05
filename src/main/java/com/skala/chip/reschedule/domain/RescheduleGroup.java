@@ -3,6 +3,7 @@ package com.skala.chip.reschedule.domain;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import lombok.*;
 import org.hibernate.annotations.JdbcTypeCode;
@@ -17,7 +18,10 @@ import java.util.Map;
  * delay_risk 원본은 수정하지 않고, 같은 step 의 위험 예측들을 묶어 운영자가 검토하는 단위.
  */
 @Entity
-@Table(name = "reschedule_group")
+@Table(name = "reschedule_group", indexes = {
+        @Index(name = "idx_rg_district_step", columnList = "district_id, step_id"),
+        @Index(name = "idx_rg_status", columnList = "group_status")
+})
 @Getter
 @Setter
 @NoArgsConstructor
