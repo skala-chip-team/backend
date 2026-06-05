@@ -15,6 +15,9 @@ public interface DelayRiskRepository extends JpaRepository<DelayRisk, String> {
 
     List<DelayRisk> findByDistrict_DistrictId(String districtId);
 
+    // risk_id 목록으로 위험 조회 (재조정 그룹 상세용)
+    List<DelayRisk> findByRiskIdIn(List<String> riskIds);
+
     // 모델 실행 배치(시 단위) 조회: [start, end) 범위의 위험 목록
     List<DelayRisk> findByDetectionTimeGreaterThanEqualAndDetectionTimeLessThan(
             LocalDateTime start, LocalDateTime end);
