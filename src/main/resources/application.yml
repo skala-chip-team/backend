@@ -15,6 +15,10 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
 
+reschedule:
+  # 위험 그룹핑 트리거 임계값 (delay_probability 기준, 0.0 ~ 1.0)
+  risk-threshold: ${RESCHEDULE_RISK_THRESHOLD:0.7}
+
 jwt:
   # HS256 서명에 최소 32바이트 이상의 키가 필요하다.
   # 운영 환경에서는 반드시 JWT_SECRET 환경변수로 안전한 값을 주입할 것.

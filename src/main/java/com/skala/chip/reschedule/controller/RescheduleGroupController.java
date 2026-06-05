@@ -2,8 +2,8 @@ package com.skala.chip.reschedule.controller;
 
 import com.skala.chip.common.ApiResponse;
 import com.skala.chip.reschedule.dto.RescheduleGroupDetailResponse;
-import com.skala.chip.reschedule.dto.RescheduleSelectionResponse;
 import com.skala.chip.reschedule.dto.SelectRescheduleRequest;
+import com.skala.chip.reschedule.dto.SelectRescheduleResponse;
 import com.skala.chip.reschedule.service.RescheduleGroupService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -29,10 +29,11 @@ public class RescheduleGroupController {
     }
 
     /**
-     * 재조정 전략 선택·확정: 선택된 전략을 reschedule_selection 에 저장하고 그룹을 approved 로 변경.
+     * 재조정 전략 선택·확정: reschedule_group 에서 선택 전략을 selected_yn=true 로 표시하고,
+     * queue_reorder 를 process_queue 에 반영, group_status 를 approved 로 변경.
      */
     @PostMapping("/{groupId}/select")
-    public ApiResponse<RescheduleSelectionResponse> selectStrategy(
+    public ApiResponse<SelectRescheduleResponse> selectStrategy(
             @PathVariable String groupId,
             @RequestBody SelectRescheduleRequest request
     ) {
