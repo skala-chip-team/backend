@@ -6,11 +6,13 @@ import com.skala.chip.monitoring.repository.DelayRiskRepository;
 import com.skala.chip.monitoring.repository.ProcessQueueRepository;
 import com.skala.chip.monitoring.repository.ProcessStepOrderRepository;
 import com.skala.chip.reschedule.domain.RescheduleGroup;
+import com.skala.chip.reschedule.domain.RescheduleSelection;
 import com.skala.chip.reschedule.dto.RelatedRisk;
 import com.skala.chip.reschedule.dto.RescheduleGroupDetailResponse;
+import com.skala.chip.reschedule.dto.RescheduleSelectionResponse;
 import com.skala.chip.reschedule.dto.SelectRescheduleRequest;
-import com.skala.chip.reschedule.dto.SelectRescheduleResponse;
 import com.skala.chip.reschedule.repository.RescheduleGroupRepository;
+import com.skala.chip.reschedule.repository.RescheduleSelectionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,6 +21,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -32,11 +35,13 @@ import java.util.stream.Collectors;
 public class RescheduleGroupService {
 
     private static final String GROUP_STATUS_APPROVED = "approved";
+    private static final String SELECTION_STATUS_APPLIED = "applied";
 
     private final RescheduleGroupRepository rescheduleGroupRepository;
     private final ProcessStepOrderRepository processStepOrderRepository;
     private final DelayRiskRepository delayRiskRepository;
     private final ProcessQueueRepository processQueueRepository;
+    private final RescheduleSelectionRepository rescheduleSelectionRepository;
 
     @Transactional(readOnly = true)
     public RescheduleGroupDetailResponse getGroupDetail(String groupId) {
@@ -81,13 +86,14 @@ public class RescheduleGroupService {
     }
 
     /**
-     * 여러 후보 전략 중 하나를 선택·확정한다 (별도 테이블 없이 reschedule_group 으로 처리).
+     * 여러 후보 전략 중 하나를 선택·확정한다.
      * - reschedule_detail.reschedule_options 에서 선택된 전략을 selected_yn=true 로 표시 (나머지 false)
+     * - 선택 결과를 reschedule_selection 에 저장 (그룹당 1건, 재선택 시 덮어쓰기)
      * - 선택된 전략의 queue_reorder 를 process_queue 에 실제 반영
      * - reschedule_group.group_status 를 approved 로 변경
      */
     @Transactional
-    public SelectRescheduleResponse selectStrategy(String groupId, SelectRescheduleRequest request) {
+    public RescheduleSelectionResponse selectStrategy(String groupId, SelectRescheduleRequest request) {
 
         RescheduleGroup group = rescheduleGroupRepository.findById(groupId)
                 .orElseThrow(() -> new IllegalArgumentException(
@@ -111,20 +117,36 @@ public class RescheduleGroupService {
                     "해당 strategy 의 재조정안을 찾을 수 없습니다: " + request.strategy());
         }
 
+        LocalDateTime now = LocalDateTime.now();
+
+        // reschedule_selection 에 저장 (그룹당 1건, 재선택 시 덮어쓰기)
+        RescheduleSelection selection = rescheduleSelectionRepository.findByGroupId(groupId)
+                .orElseGet(() -> RescheduleSelection.builder()
+                        .selectionId("SEL-" + UUID.randomUUID())
+                        .groupId(groupId)
+                        .build());
+        selection.setStrategy(request.strategy());
+        selection.setSelectedDetail(selectedOption);
+        selection.setStatus(SELECTION_STATUS_APPLIED);
+        selection.setSelectedAt(now);
+        rescheduleSelectionRepository.save(selection);
+
         // 선택된 전략의 queue_reorder 를 process_queue 에 실제 반영
         applyQueueReorder(selectedOption);
 
-        LocalDateTime now = LocalDateTime.now();
-        group.setRescheduleDetail(detail);   // selected_yn 변경 반영
+        // reschedule_group 갱신 (selected_yn 반영 + 상태 확정)
+        group.setRescheduleDetail(detail);
         group.setGroupStatus(GROUP_STATUS_APPROVED);
         group.setActedAt(now);
         rescheduleGroupRepository.save(group);
 
-        return new SelectRescheduleResponse(
+        return new RescheduleSelectionResponse(
+                selection.getSelectionId(),
                 groupId,
-                request.strategy(),
-                group.getGroupStatus(),
-                now
+                selection.getStrategy(),
+                selection.getStatus(),
+                selection.getSelectedAt(),
+                group.getGroupStatus()
         );
     }
 
