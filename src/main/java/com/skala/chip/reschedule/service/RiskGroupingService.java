@@ -10,7 +10,6 @@ import com.skala.chip.reschedule.dto.RiskGroupingResponse;
 import com.skala.chip.reschedule.dto.StepRiskGroup;
 import com.skala.chip.reschedule.repository.RescheduleGroupRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -41,9 +40,8 @@ public class RiskGroupingService {
 
     private static final String STATUS_PENDING = "pending";
 
-    // 위험 그룹핑 임계값 (application.yml 에서 설정)
-    @Value("${reschedule.risk-threshold:0.7}")
-    private double riskThreshold;
+    // 위험 그룹핑 임계값 (하드코딩, 사용자 변경 대상 아님)
+    private static final double RISK_THRESHOLD = 0.7;
 
     private final DelayRiskRepository delayRiskRepository;
     private final ProcessStepOrderRepository processStepOrderRepository;
@@ -52,7 +50,7 @@ public class RiskGroupingService {
     @Transactional
     public RiskGroupingResponse groupRisks(LocalDateTime detectionTime) {
 
-        double threshold = riskThreshold;
+        double threshold = RISK_THRESHOLD;
 
         // 기준 시각 결정 (미지정 시 최신 위험 시각 사용)
         LocalDateTime baseTime = (detectionTime != null)
