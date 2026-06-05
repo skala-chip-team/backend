@@ -2,15 +2,21 @@ package com.skala.chip.monitoring.controller;
 
 import com.skala.chip.common.ApiResponse;
 import com.skala.chip.monitoring.dto.DelayRiskResponseDTO;
+import com.skala.chip.monitoring.dto.DistrictSummaryResponseDTO;
 import com.skala.chip.monitoring.dto.MachineRequestDTO;
 import com.skala.chip.monitoring.dto.MachineResponseDTO;
 import com.skala.chip.monitoring.dto.QueueResponseDTO;
+import com.skala.chip.monitoring.dto.ScheduleGanttResponseDTO;
 import com.skala.chip.monitoring.dto.ScheduleResponseDTO;
 import com.skala.chip.monitoring.dto.StatisticsResponseDTO;
+import com.skala.chip.monitoring.dto.StepQueueResponseDTO;
 import com.skala.chip.monitoring.dto.UnitResponseDTO;
 import com.skala.chip.monitoring.dto.WorkStatusResponseDTO;
 import com.skala.chip.monitoring.service.DelayRiskService;
+import com.skala.chip.monitoring.service.DistrictSummaryService;
 import com.skala.chip.monitoring.service.MachineService;
+import com.skala.chip.monitoring.service.ScheduleGanttService;
+import com.skala.chip.monitoring.service.StepQueueService;
 import com.skala.chip.monitoring.service.QueueService;
 import com.skala.chip.monitoring.service.ScheduleService;
 import com.skala.chip.monitoring.service.StatisticsService;
@@ -34,6 +40,9 @@ public class MonitoringController {
     private final QueueService queueService;
     private final StatisticsService statisticsService;
     private final WorkStatusService workStatusService;
+    private final DistrictSummaryService districtSummaryService;
+    private final ScheduleGanttService scheduleGanttService;
+    private final StepQueueService stepQueueService;
 
     @Operation(summary = "전체 장비 조회")
     @GetMapping("/machines")
@@ -174,6 +183,36 @@ public class MonitoringController {
     ) {
         return ApiResponse.success(
                 queueService.getUnitQueues(unitId)
+        );
+    }
+
+    @Operation(summary = "구역 상태 요약 조회")
+    @GetMapping("/districts/{districtId}/summary")
+    public ApiResponse<DistrictSummaryResponseDTO.DistrictSummary> getDistrictSummary(
+            @PathVariable String districtId
+    ) {
+        return ApiResponse.success(
+                districtSummaryService.getDistrictSummary(districtId)
+        );
+    }
+
+    @Operation(summary = "구역 스케줄 간트 차트 조회")
+    @GetMapping("/districts/{districtId}/schedules/gantt")
+    public ApiResponse<ScheduleGanttResponseDTO.DistrictGantt> getDistrictScheduleGantt(
+            @PathVariable String districtId
+    ) {
+        return ApiResponse.success(
+                scheduleGanttService.getDistrictGantt(districtId)
+        );
+    }
+
+    @Operation(summary = "구역 step별 큐 정보 조회")
+    @GetMapping("/districts/{districtId}/queues/by-step")
+    public ApiResponse<StepQueueResponseDTO.DistrictStepQueue> getDistrictStepQueues(
+            @PathVariable String districtId
+    ) {
+        return ApiResponse.success(
+                stepQueueService.getDistrictStepQueues(districtId)
         );
     }
 

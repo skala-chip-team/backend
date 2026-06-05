@@ -1,0 +1,28 @@
+package com.skala.chip.monitoring.dto;
+
+import lombok.Builder;
+import lombok.Getter;
+
+public class DistrictSummaryResponseDTO {
+
+    @Getter
+    @Builder
+    public static class DistrictSummary {
+
+        private String districtId;
+        private String districtName;
+
+        // 장비 현황
+        private long totalMachineCount;      // 전체 장비 수
+        private long availableMachineCount;  // 가용 장비 수 (가동중 + 대기)
+        private long downMachineCount;       // 장애 장비 수
+        private double avgUtilizationRate;   // 평균 가동률 (가동중 / 전체, %)
+
+        // 대기 unit 현황
+        private long totalWaitingUnitCount;  // 전체 대기 unit 수
+        private double avgWaitTimeMin;       // 평균 대기 시간 (분)
+
+        // 생산 현황
+        private long dailyOutputQty;         // 금일 생산량
+    }
+}
