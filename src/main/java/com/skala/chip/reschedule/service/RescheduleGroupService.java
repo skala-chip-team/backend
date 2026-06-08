@@ -7,8 +7,10 @@ import com.skala.chip.monitoring.repository.ProcessQueueRepository;
 import com.skala.chip.monitoring.repository.ProcessStepOrderRepository;
 import com.skala.chip.reschedule.domain.RescheduleGroup;
 import com.skala.chip.reschedule.domain.RescheduleSelection;
+import com.skala.chip.reschedule.dto.AffectedUnit;
 import com.skala.chip.reschedule.dto.RelatedRisk;
 import com.skala.chip.reschedule.dto.RescheduleGroupDetailResponse;
+import com.skala.chip.reschedule.dto.RescheduleGroupSummaryResponse;
 import com.skala.chip.reschedule.dto.RescheduleSelectionResponse;
 import com.skala.chip.reschedule.dto.SelectRescheduleRequest;
 import com.skala.chip.reschedule.repository.RescheduleGroupRepository;
@@ -18,6 +20,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -35,6 +38,8 @@ import java.util.stream.Collectors;
 public class RescheduleGroupService {
 
     private static final String GROUP_STATUS_APPROVED = "approved";
+    private static final String GROUP_STATUS_PENDING = "pending";
+    private static final String STATUS_FILTER_ACTIVE = "active";   // 진행중 = pending + approved
     private static final String SELECTION_STATUS_APPLIED = "applied";
 
     private final RescheduleGroupRepository rescheduleGroupRepository;
@@ -82,6 +87,91 @@ public class RescheduleGroupService {
                 group.getActedAt(),
                 delayRisks,
                 group.getRescheduleDetail()
+        );
+    }
+
+    /**
+     * 재조정안 관리(목록) 조회.
+     * @param districtId 구역 필터 (null/blank = 전체)
+     * @param status     상태 필터 (active=진행중(pending+approved) / expired / 특정 상태 / null=전체)
+     */
+    @Transactional(readOnly = true)
+    public List<RescheduleGroupSummaryResponse> getGroups(String districtId, String status) {
+
+        List<RescheduleGroup> groups = (districtId != null && !districtId.isBlank())
+                ? rescheduleGroupRepository.findByDistrictId(districtId)
+                : rescheduleGroupRepository.findAll();
+
+        groups = filterByStatus(groups, status);
+
+        // 공정 단계명 맵
+        Map<String, ProcessStepOrder> stepMap = processStepOrderRepository.findAll().stream()
+                .collect(Collectors.toMap(
+                        ProcessStepOrder::getStepId, Function.identity(), (a, b) -> a));
+
+        // 모든 그룹의 member_risk_ids 를 모아 한 번에 delay_risk 조회 (N+1 방지)
+        List<String> allRiskIds = groups.stream()
+                .map(RescheduleGroup::getMemberRiskIds)
+                .filter(Objects::nonNull)
+                .flatMap(List::stream)
+                .distinct()
+                .toList();
+        Map<String, DelayRisk> riskById = allRiskIds.isEmpty()
+                ? Map.of()
+                : delayRiskRepository.findByRiskIdIn(allRiskIds).stream()
+                        .collect(Collectors.toMap(
+                                DelayRisk::getRiskId, Function.identity(), (a, b) -> a));
+
+        return groups.stream()
+                .map(g -> toSummary(g, stepMap, riskById))
+                // 생성 시각 최신순
+                .sorted(Comparator.comparing(
+                        RescheduleGroupSummaryResponse::createdAt,
+                        Comparator.nullsLast(Comparator.reverseOrder())))
+                .toList();
+    }
+
+    private List<RescheduleGroup> filterByStatus(List<RescheduleGroup> groups, String status) {
+        if (status == null || status.isBlank()) {
+            return groups;
+        }
+        if (STATUS_FILTER_ACTIVE.equals(status)) {
+            return groups.stream()
+                    .filter(g -> GROUP_STATUS_PENDING.equals(g.getGroupStatus())
+                            || GROUP_STATUS_APPROVED.equals(g.getGroupStatus()))
+                    .toList();
+        }
+        return groups.stream()
+                .filter(g -> status.equals(g.getGroupStatus()))
+                .toList();
+    }
+
+    private RescheduleGroupSummaryResponse toSummary(
+            RescheduleGroup group,
+            Map<String, ProcessStepOrder> stepMap,
+            Map<String, DelayRisk> riskById
+    ) {
+        ProcessStepOrder step = stepMap.get(group.getStepId());
+        List<String> memberRiskIds = group.getMemberRiskIds() != null
+                ? group.getMemberRiskIds() : List.of();
+
+        List<AffectedUnit> affectedUnits = memberRiskIds.stream()
+                .map(riskById::get)
+                .filter(Objects::nonNull)
+                .map(r -> new AffectedUnit(
+                        r.getUnit() != null ? r.getUnit().getUnitId() : null,
+                        r.getEstimatedDelayHr()))
+                .toList();
+
+        return new RescheduleGroupSummaryResponse(
+                group.getGroupId(),
+                group.getDistrictId(),
+                group.getStepId(),
+                step != null ? step.getProcessStep() : null,
+                group.getMaxRiskScore(),
+                group.getGroupStatus(),
+                group.getActedAt(),
+                affectedUnits
         );
     }
 
@@ -135,9 +225,9 @@ public class RescheduleGroupService {
         applyQueueReorder(selectedOption);
 
         // reschedule_group 갱신 (selected_yn 반영 + 상태 확정)
+        // acted_at(생성 시각)은 보존한다. 선택 시각은 reschedule_selection.selected_at 에 기록됨.
         group.setRescheduleDetail(detail);
         group.setGroupStatus(GROUP_STATUS_APPROVED);
-        group.setActedAt(now);
         rescheduleGroupRepository.save(group);
 
         return new RescheduleSelectionResponse(
