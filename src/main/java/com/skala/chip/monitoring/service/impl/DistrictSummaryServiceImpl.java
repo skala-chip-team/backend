@@ -9,6 +9,7 @@ import com.skala.chip.monitoring.repository.MachineRepository;
 import com.skala.chip.monitoring.repository.ProcessQueueRepository;
 import com.skala.chip.monitoring.repository.WorkStatusRepository;
 import com.skala.chip.monitoring.service.DistrictSummaryService;
+import com.skala.chip.monitoring.service.SimClock;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,6 +31,7 @@ public class DistrictSummaryServiceImpl implements DistrictSummaryService {
     private final MachineRepository machineRepository;
     private final ProcessQueueRepository processQueueRepository;
     private final WorkStatusRepository workStatusRepository;
+    private final SimClock simClock;
 
     @Override
     @Transactional(readOnly = true)
@@ -69,7 +71,8 @@ public class DistrictSummaryServiceImpl implements DistrictSummaryService {
         avgWaitTimeMin = Math.round(avgWaitTimeMin * 10) / 10.0;
 
         // 3. 금일 생산량 집계 (오늘 시작된 작업의 output_qty 합계)
-        LocalDate today = LocalDate.now();
+        // 시뮬레이션 데이터는 sim 달력 기준이라 실제 LocalDate.now() 가 아닌 sim 기준 "오늘" 을 쓴다.
+        LocalDate today = simClock.now().toLocalDate();
         long dailyOutputQty = workStatusRepository
                 .findByMachine_District_DistrictId(districtId).stream()
                 .filter(ws -> ws.getStartTime() != null

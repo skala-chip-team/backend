@@ -11,12 +11,12 @@ import com.skala.chip.monitoring.repository.MachineStepMapRepository;
 import com.skala.chip.monitoring.repository.ScheduleRepository;
 import com.skala.chip.monitoring.repository.WorkStatusRepository;
 import com.skala.chip.monitoring.service.DistrictMachineService;
+import com.skala.chip.monitoring.service.SimClock;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -29,6 +29,7 @@ public class DistrictMachineServiceImpl implements DistrictMachineService {
     private final MachineStatusEventRepository machineStatusEventRepository;
     private final ScheduleRepository scheduleRepository;
     private final WorkStatusRepository workStatusRepository;
+    private final SimClock simClock;
 
     @Override
     @Transactional(readOnly = true)
@@ -40,7 +41,8 @@ public class DistrictMachineServiceImpl implements DistrictMachineService {
                 ? machineStepMapRepository.findByMachine_District_DistrictIdAndStep_StepId(districtId, stepId)
                 : machineStepMapRepository.findByMachine_District_DistrictId(districtId);
 
-        LocalDateTime todayStart = LocalDate.now().atStartOfDay();
+        // 시뮬레이션 데이터는 sim 달력 기준이라 실제 LocalDate.now() 가 아닌 sim 기준 "오늘" 을 쓴다.
+        LocalDateTime todayStart = simClock.now().toLocalDate().atStartOfDay();
 
         List<DistrictMachineResponseDTO.MachineDetail> machines = stepMaps.stream()
                 .map(map -> buildMachineDetail(map, todayStart))
