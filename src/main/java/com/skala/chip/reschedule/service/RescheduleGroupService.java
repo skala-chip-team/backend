@@ -1,10 +1,14 @@
 package com.skala.chip.reschedule.service;
 
 import com.skala.chip.monitoring.domain.DelayRisk;
+import com.skala.chip.monitoring.domain.MachineMaster;
 import com.skala.chip.monitoring.domain.ProcessStepOrder;
+import com.skala.chip.monitoring.domain.ScheduleMaster;
 import com.skala.chip.monitoring.repository.DelayRiskRepository;
+import com.skala.chip.monitoring.repository.MachineRepository;
 import com.skala.chip.monitoring.repository.ProcessQueueRepository;
 import com.skala.chip.monitoring.repository.ProcessStepOrderRepository;
+import com.skala.chip.monitoring.repository.ScheduleRepository;
 import com.skala.chip.reschedule.domain.RescheduleGroup;
 import com.skala.chip.reschedule.domain.RescheduleSelection;
 import com.skala.chip.reschedule.dto.AffectedUnit;
@@ -16,10 +20,13 @@ import com.skala.chip.reschedule.dto.SelectRescheduleRequest;
 import com.skala.chip.reschedule.repository.RescheduleGroupRepository;
 import com.skala.chip.reschedule.repository.RescheduleSelectionRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeParseException;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -33,6 +40,7 @@ import java.util.stream.Collectors;
  * 상세 페이지 조회와, 여러 전략 중 하나를 선택·확정하는 처리를 담당한다.
  * 선택 결과는 별도 테이블 없이 reschedule_group 안에서 관리한다.
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class RescheduleGroupService {
@@ -47,6 +55,23 @@ public class RescheduleGroupService {
     private final DelayRiskRepository delayRiskRepository;
     private final ProcessQueueRepository processQueueRepository;
     private final RescheduleSelectionRepository rescheduleSelectionRepository;
+    private final ScheduleRepository scheduleRepository;
+    private final MachineRepository machineRepository;
+
+    /**
+     * 에이전트(/run) 결과를 그룹의 reschedule_detail 에 저장한다.
+     * RunResponse 전체(risk_analysis, reschedule_result, decision_summaries ...)를 통째로 보관해
+     * 상세 페이지에서 근거/요약까지 노출할 수 있게 한다.
+     * 상태는 pending 그대로 유지(승인 전 단계).
+     */
+    @Transactional
+    public void applyAgentResult(String groupId, Map<String, Object> runResult) {
+        RescheduleGroup group = rescheduleGroupRepository.findById(groupId)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "존재하지 않는 groupId입니다: " + groupId));
+        group.setRescheduleDetail(runResult);
+        rescheduleGroupRepository.save(group);
+    }
 
     @Transactional(readOnly = true)
     public RescheduleGroupDetailResponse getGroupDetail(String groupId) {
@@ -194,8 +219,7 @@ public class RescheduleGroupService {
         }
 
         Map<String, Object> detail = group.getRescheduleDetail();
-        List<?> options = (detail != null && detail.get("reschedule_options") instanceof List<?> list)
-                ? list : null;
+        List<?> options = extractOptions(detail);
         if (options == null || options.isEmpty()) {
             throw new IllegalArgumentException("재조정안(reschedule_detail)이 아직 없습니다.");
         }
@@ -223,6 +247,9 @@ public class RescheduleGroupService {
 
         // 선택된 전략의 queue_reorder 를 process_queue 에 실제 반영
         applyQueueReorder(selectedOption);
+
+        // 선택된 전략의 after_schedule 을 schedule_master 에 실제 반영
+        applyAfterSchedule(selectedOption);
 
         // reschedule_group 갱신 (selected_yn 반영 + 상태 확정)
         // acted_at(생성 시각)은 보존한다. 선택 시각은 reschedule_selection.selected_at 에 기록됨.
@@ -284,6 +311,103 @@ public class RescheduleGroupService {
                 queue.setQueuePosition(pos.intValue());
                 processQueueRepository.save(queue);
             });
+        }
+    }
+
+    /**
+     * reschedule_detail 에서 옵션 목록을 꺼낸다.
+     * 에이전트(RunResponse) 결과는 reschedule_result.reschedule_options 에 있고,
+     * 과거 형식(최상위 reschedule_options)도 호환 처리한다.
+     */
+    private List<?> extractOptions(Map<String, Object> detail) {
+        if (detail == null) {
+            return null;
+        }
+        if (detail.get("reschedule_result") instanceof Map<?, ?> result
+                && result.get("reschedule_options") instanceof List<?> nested) {
+            return nested;
+        }
+        if (detail.get("reschedule_options") instanceof List<?> flat) {
+            return flat;
+        }
+        return null;
+    }
+
+    /**
+     * 선택된 전략의 after_schedule 을 schedule_master 에 반영한다.
+     *
+     * after_schedule 형식(Schedule): { "units": [ { "unit_id", "steps": [
+     *   { "step_id", "start", "finish", "machine_id" } ] } ] }
+     *
+     * (unit_id, step_id) 로 schedule_master 행을 찾아 estimated_start 와 machine 을 갱신한다.
+     * 같은 (unit, step) 행이 여럿이면 active=true 행을 우선한다.
+     */
+    private void applyAfterSchedule(Map<String, Object> option) {
+        Object afterSchedule = option.get("after_schedule");
+        if (!(afterSchedule instanceof Map<?, ?> schedule)) {
+            return;
+        }
+        if (!(schedule.get("units") instanceof List<?> units)) {
+            return;
+        }
+
+        int updated = 0;
+        for (Object u : units) {
+            if (!(u instanceof Map<?, ?> unit) || !(unit.get("unit_id") instanceof String unitId)) {
+                continue;
+            }
+            if (!(unit.get("steps") instanceof List<?> steps)) {
+                continue;
+            }
+
+            // 해당 unit 의 schedule 행을 step_id 별로 (active 우선) 인덱싱
+            Map<String, ScheduleMaster> byStep = scheduleRepository.findByUnit_UnitId(unitId).stream()
+                    .filter(s -> s.getStepId() != null)
+                    .collect(Collectors.toMap(
+                            ScheduleMaster::getStepId,
+                            Function.identity(),
+                            (a, b) -> Boolean.TRUE.equals(a.getActive()) ? a : b));
+
+            for (Object st : steps) {
+                if (!(st instanceof Map<?, ?> step) || !(step.get("step_id") instanceof String stepId)) {
+                    continue;
+                }
+                ScheduleMaster row = byStep.get(stepId);
+                if (row == null) {
+                    continue;
+                }
+
+                LocalDateTime start = parseDateTime(step.get("start"));
+                if (start != null) {
+                    row.setEstimatedStart(start);
+                }
+                if (step.get("machine_id") instanceof String machineId && !machineId.isBlank()) {
+                    MachineMaster machine = machineRepository.findById(machineId).orElse(null);
+                    if (machine != null) {
+                        row.setMachine(machine);
+                    }
+                }
+                scheduleRepository.save(row);
+                updated++;
+            }
+        }
+        log.info("after_schedule 적용: schedule_master {}건 갱신", updated);
+    }
+
+    /** ISO 날짜시간 문자열(오프셋 유무 모두)을 LocalDateTime 으로 파싱한다. */
+    private LocalDateTime parseDateTime(Object value) {
+        if (!(value instanceof String s) || s.isBlank()) {
+            return null;
+        }
+        try {
+            return LocalDateTime.parse(s);
+        } catch (DateTimeParseException ignored) {
+            try {
+                return OffsetDateTime.parse(s).toLocalDateTime();
+            } catch (DateTimeParseException e) {
+                log.warn("after_schedule start 시각 파싱 실패: {}", s);
+                return null;
+            }
         }
     }
 

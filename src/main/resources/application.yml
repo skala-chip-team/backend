@@ -15,6 +15,14 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
 
+ai:
+  # 같은 네임스페이스의 AI 재조정 에이전트(skala-chip-ai) 서비스 주소
+  base-url: ${AI_BASE_URL:http://skala-chip-ai:8000}
+  # 연결 타임아웃 (ms)
+  connect-timeout-ms: ${AI_CONNECT_TIMEOUT_MS:3000}
+  # 응답 타임아웃 (ms). /run 은 LLM 호출이라 길게 잡는다.
+  read-timeout-ms: ${AI_READ_TIMEOUT_MS:120000}
+
 jwt:
   # HS256 서명에 최소 32바이트 이상의 키가 필요하다.
   # 운영 환경에서는 반드시 JWT_SECRET 환경변수로 안전한 값을 주입할 것.

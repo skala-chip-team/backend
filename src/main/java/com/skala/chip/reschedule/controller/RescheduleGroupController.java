@@ -6,6 +6,7 @@ import com.skala.chip.reschedule.dto.RescheduleGroupSummaryResponse;
 import com.skala.chip.reschedule.dto.RescheduleSelectionResponse;
 import com.skala.chip.reschedule.dto.SelectRescheduleRequest;
 import com.skala.chip.reschedule.service.RescheduleGroupService;
+import com.skala.chip.reschedule.service.RescheduleOrchestrationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -23,6 +24,7 @@ import java.util.List;
 public class RescheduleGroupController {
 
     private final RescheduleGroupService rescheduleGroupService;
+    private final RescheduleOrchestrationService orchestrationService;
 
     /**
      * 재조정안 관리(목록) 페이지.
@@ -43,6 +45,15 @@ public class RescheduleGroupController {
     @GetMapping("/{groupId}")
     public ApiResponse<RescheduleGroupDetailResponse> getGroupDetail(@PathVariable String groupId) {
         return ApiResponse.success(rescheduleGroupService.getGroupDetail(groupId));
+    }
+
+    /**
+     * 재조정안 (재)생성: 해당 그룹의 대표 위험으로 에이전트(/run)를 호출해
+     * reschedule_detail 을 채운다. 에이전트 실패나 재시도 시 수동으로 호출.
+     */
+    @PostMapping("/{groupId}/generate")
+    public ApiResponse<RescheduleGroupDetailResponse> generateDetail(@PathVariable String groupId) {
+        return ApiResponse.success(orchestrationService.generateForGroup(groupId));
     }
 
     /**
