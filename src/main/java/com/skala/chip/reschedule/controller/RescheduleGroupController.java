@@ -2,6 +2,7 @@ package com.skala.chip.reschedule.controller;
 
 import com.skala.chip.common.ApiResponse;
 import com.skala.chip.reschedule.dto.RescheduleGroupDetailResponse;
+import com.skala.chip.reschedule.dto.RescheduleGroupSummaryResponse;
 import com.skala.chip.reschedule.dto.RescheduleSelectionResponse;
 import com.skala.chip.reschedule.dto.SelectRescheduleRequest;
 import com.skala.chip.reschedule.service.RescheduleGroupService;
@@ -11,7 +12,10 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
@@ -19,6 +23,19 @@ import org.springframework.web.bind.annotation.RestController;
 public class RescheduleGroupController {
 
     private final RescheduleGroupService rescheduleGroupService;
+
+    /**
+     * 재조정안 관리(목록) 페이지.
+     * @param districtId 구역 필터 (없으면 전체)
+     * @param status     상태 필터 (active=진행중 / expired=만료 / pending / approved, 없으면 전체)
+     */
+    @GetMapping
+    public ApiResponse<List<RescheduleGroupSummaryResponse>> getGroups(
+            @RequestParam(required = false) String districtId,
+            @RequestParam(required = false) String status
+    ) {
+        return ApiResponse.success(rescheduleGroupService.getGroups(districtId, status));
+    }
 
     /**
      * 재조정 상세 페이지: 그룹 정보 + 관련 delay_risks + 에이전트 출력(reschedule_detail).
