@@ -2,6 +2,7 @@ package com.skala.chip.monitoring.controller;
 
 import com.skala.chip.common.ApiResponse;
 import com.skala.chip.monitoring.dto.DelayRiskResponseDTO;
+import com.skala.chip.monitoring.dto.DistrictMachineResponseDTO;
 import com.skala.chip.monitoring.dto.DistrictSummaryResponseDTO;
 import com.skala.chip.monitoring.dto.MachineRequestDTO;
 import com.skala.chip.monitoring.dto.MachineResponseDTO;
@@ -13,6 +14,7 @@ import com.skala.chip.monitoring.dto.StepQueueResponseDTO;
 import com.skala.chip.monitoring.dto.UnitResponseDTO;
 import com.skala.chip.monitoring.dto.WorkStatusResponseDTO;
 import com.skala.chip.monitoring.service.DelayRiskService;
+import com.skala.chip.monitoring.service.DistrictMachineService;
 import com.skala.chip.monitoring.service.DistrictSummaryService;
 import com.skala.chip.monitoring.service.MachineService;
 import com.skala.chip.monitoring.service.ScheduleGanttService;
@@ -43,6 +45,7 @@ public class MonitoringController {
     private final DistrictSummaryService districtSummaryService;
     private final ScheduleGanttService scheduleGanttService;
     private final StepQueueService stepQueueService;
+    private final DistrictMachineService districtMachineService;
 
     @Operation(summary = "전체 장비 조회")
     @GetMapping("/machines")
@@ -213,6 +216,17 @@ public class MonitoringController {
     ) {
         return ApiResponse.success(
                 stepQueueService.getDistrictStepQueues(districtId)
+        );
+    }
+
+    @Operation(summary = "구역 장비 현황 조회")
+    @GetMapping("/districts/{districtId}/machines")
+    public ApiResponse<DistrictMachineResponseDTO.DistrictMachines> getDistrictMachines(
+            @PathVariable String districtId,
+            @RequestParam(required = false) String stepId
+    ) {
+        return ApiResponse.success(
+                districtMachineService.getDistrictMachines(districtId, stepId)
         );
     }
 
