@@ -14,4 +14,6 @@ public interface ScheduleRepository extends JpaRepository<ScheduleMaster, String
     List<ScheduleMaster> findByUnit_UnitId(String unitId);
 
     List<ScheduleMaster> findByMachine_District_DistrictId(String districtId);
+
+    List<ScheduleMaster> findByMachine_MachineIdAndStatusAndActiveTrue(String machineId, String status);
 }
