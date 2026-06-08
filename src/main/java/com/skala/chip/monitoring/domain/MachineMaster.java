@@ -26,7 +26,8 @@ public class MachineMaster {
     @Column(name = "maker")
     private String maker;
 
-    @Column(name = "rated_capacity")
+    // 실제 테이블 컬럼명은 daily_capacity (구 rated_capacity). 필드명은 호환 위해 유지.
+    @Column(name = "daily_capacity")
     private Integer ratedCapacity;
 
     @Column(name = "install_year")
