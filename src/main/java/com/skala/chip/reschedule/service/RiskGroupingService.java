@@ -30,7 +30,7 @@ import java.util.stream.Collectors;
  *  ① 같은 배치(detection_time)의 delay_risk 를 unit_id 별로 묶기
  *  ② 각 unit 에서 가장 앞선 위험 step(min step_order)의 delay_risk 만 대표로 남기기
  *  ③ 남은 대표들을 (구역, step) 기준으로 다시 묶기
- *  ④ 그룹별 max(delay_probability) 가 임계값 이상이면 에이전트 호출 대상(triggered)
+ *  ④ 그룹 대표 위험 중 risk_level 이 High/Critical 이면 에이전트 호출 대상(triggered)
  *
  * triggered 그룹은 reschedule_group 테이블에 pending 상태로 저장한다.
  */
@@ -40,8 +40,15 @@ public class RiskGroupingService {
 
     private static final String STATUS_PENDING = "pending";
 
-    // 위험 그룹핑 임계값 (하드코딩, 사용자 변경 대상 아님)
-    private static final double RISK_THRESHOLD = 0.7;
+    // 에이전트 호출 트리거 대상 위험 등급
+    private static final String RISK_LEVEL_HIGH = "High";
+    private static final String RISK_LEVEL_CRITICAL = "Critical";
+
+    /** 위험 등급이 High 또는 Critical 이면 재조정(에이전트 호출) 트리거 대상. */
+    private static boolean isHighOrCritical(String riskLevel) {
+        return RISK_LEVEL_HIGH.equalsIgnoreCase(riskLevel)
+                || RISK_LEVEL_CRITICAL.equalsIgnoreCase(riskLevel);
+    }
 
     private final DelayRiskRepository delayRiskRepository;
     private final ProcessStepOrderRepository processStepOrderRepository;
@@ -50,7 +57,9 @@ public class RiskGroupingService {
     @Transactional
     public RiskGroupingResponse groupRisks(LocalDateTime detectionTime) {
 
-        double threshold = RISK_THRESHOLD;
+        // 트리거는 risk_level(High/Critical) 기준이라 수치 임계값은 사용하지 않는다.
+        // 응답 호환을 위해 threshold 필드는 0.0 으로 둔다.
+        double threshold = 0.0;
 
         // 기준 시각 결정 (미지정 시 최신 위험 시각 사용)
         LocalDateTime baseTime = (detectionTime != null)
@@ -145,7 +154,7 @@ public class RiskGroupingService {
     ) {
         ProcessStepOrder stepDef = stepMap.get(key.stepId());
 
-        // 게이트/저장 기준: delay_probability 의 최대값 (0.0~1.0 범위)
+        // 저장/표시용 지표: delay_probability 의 최대값 (0.0~1.0 범위)
         double maxRiskScore = groupRisks.stream()
                 .map(DelayRisk::getDelayProbability)
                 .filter(Objects::nonNull)
@@ -153,7 +162,11 @@ public class RiskGroupingService {
                 .max()
                 .orElse(0.0);
 
-        boolean triggered = maxRiskScore >= threshold;
+        // 트리거 조건: 그룹 대표 위험 중 risk_level 이 High 또는 Critical 이면 에이전트 호출 대상
+        boolean triggered = groupRisks.stream()
+                .map(DelayRisk::getRiskLevel)
+                .filter(Objects::nonNull)
+                .anyMatch(RiskGroupingService::isHighOrCritical);
 
         // delay_probability 높은 순으로 정렬
         List<RepresentativeRisk> risks = groupRisks.stream()
