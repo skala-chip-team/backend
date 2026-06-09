@@ -94,6 +94,31 @@ public class RescheduleOrchestrationService {
     }
 
     /**
+     * 자동 트리거(스케줄러)용: 모델 실행(predict) 없이
+     * 최신 delay_risk 를 그룹핑하고, 재조정안 없는 pending(트리거된 High/Critical) 그룹마다
+     * 에이전트를 호출해 reschedule_detail 을 채운다. 멱등(이미 detail 있는 그룹은 스킵).
+     *
+     * @return 이번 실행에서 에이전트 호출이 성공해 새로 생성된 재조정안 수
+     */
+    public int triggerAndGenerate() {
+        // 최신 배치 그룹핑 → triggered(High/Critical) 그룹을 pending 으로 저장 (자체 트랜잭션)
+        riskGroupingService.groupRisks(null);
+
+        List<RescheduleGroup> targets = rescheduleGroupRepository
+                .findByGroupStatus(GROUP_STATUS_PENDING).stream()
+                .filter(g -> g.getRescheduleDetail() == null)
+                .toList();
+
+        int generated = 0;
+        for (RescheduleGroup group : targets) {
+            if (generateInternal(group).success()) {
+                generated++;
+            }
+        }
+        return generated;
+    }
+
+    /**
      * 단일 그룹에 대해 에이전트를 (재)호출해 재조정안을 채운다. (수동 재생성용)
      */
     public RescheduleGroupDetailResponse generateForGroup(String groupId) {
