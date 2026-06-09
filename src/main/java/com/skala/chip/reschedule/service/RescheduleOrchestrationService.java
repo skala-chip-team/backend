@@ -101,8 +101,9 @@ public class RescheduleOrchestrationService {
      * @return 이번 실행에서 에이전트 호출이 성공해 새로 생성된 재조정안 수
      */
     public int triggerAndGenerate() {
-        // 최신 배치 그룹핑 → triggered(High/Critical) 그룹을 pending 으로 저장 (자체 트랜잭션)
-        riskGroupingService.groupRisks(null);
+        // 최근 24(sim)시간 구간 그룹핑 → triggered(High/Critical) 그룹을 pending 으로 저장.
+        // 빠른 sim 에서 1분 주기 스케줄러가 시간대를 건너뛰어 놓치는 것을 방지하는 윈도우.
+        riskGroupingService.groupRecent(24);
 
         List<RescheduleGroup> targets = rescheduleGroupRepository
                 .findByGroupStatus(GROUP_STATUS_PENDING).stream()

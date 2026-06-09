@@ -57,10 +57,6 @@ public class RiskGroupingService {
     @Transactional
     public RiskGroupingResponse groupRisks(LocalDateTime detectionTime) {
 
-        // 트리거는 risk_level(High/Critical) 기준이라 수치 임계값은 사용하지 않는다.
-        // 응답 호환을 위해 threshold 필드는 0.0 으로 둔다.
-        double threshold = 0.0;
-
         // 기준 시각 결정 (미지정 시 최신 위험 시각 사용)
         LocalDateTime baseTime = (detectionTime != null)
                 ? detectionTime
@@ -69,16 +65,40 @@ public class RiskGroupingService {
                         .orElse(null);
 
         if (baseTime == null) {
-            return new RiskGroupingResponse(null, threshold, 0, 0, 0, List.of());
+            return new RiskGroupingResponse(null, 0.0, 0, 0, 0, List.of());
         }
 
         // 시(時) 단위 배치로 묶는다: [hourStart, hourStart+1h)
-        // detection_time 이 60분 단위로 떨어지지 않아도 같은 시간대를 한 배치로 처리한다.
         LocalDateTime hourStart = baseTime.truncatedTo(ChronoUnit.HOURS);
-        LocalDateTime hourEnd = hourStart.plusHours(1);
+        return groupRisksBetween(hourStart, hourStart.plusHours(1));
+    }
+
+    /**
+     * 자동 트리거(스케줄러)용: 최신 위험 시각 기준 최근 windowHours 시간 구간을 한 번에 그룹핑한다.
+     * 빠른 sim(분당 수 시간 점프)에서도 직전 실행과의 공백 없이 신규 High/Critical 을 잡기 위함.
+     */
+    @Transactional
+    public RiskGroupingResponse groupRecent(int windowHours) {
+        LocalDateTime latest = delayRiskRepository.findTopByOrderByDetectionTimeDesc()
+                .map(DelayRisk::getDetectionTime)
+                .orElse(null);
+        if (latest == null) {
+            return new RiskGroupingResponse(null, 0.0, 0, 0, 0, List.of());
+        }
+        LocalDateTime from = latest.truncatedTo(ChronoUnit.HOURS).minusHours(windowHours);
+        LocalDateTime to = latest.plusMinutes(1);
+        return groupRisksBetween(from, to);
+    }
+
+    /** 주어진 [from, to) 구간의 delay_risk 를 그룹핑하고 triggered 그룹을 pending 으로 저장한다. */
+    @Transactional
+    public RiskGroupingResponse groupRisksBetween(LocalDateTime from, LocalDateTime to) {
+
+        // 트리거는 risk_level(High/Critical) 기준이라 수치 임계값은 사용하지 않는다.
+        double threshold = 0.0;
 
         List<DelayRisk> risks = delayRiskRepository
-                .findByDetectionTimeGreaterThanEqualAndDetectionTimeLessThan(hourStart, hourEnd);
+                .findByDetectionTimeGreaterThanEqualAndDetectionTimeLessThan(from, to);
 
         // step_id -> 공정 단계 정의(step_order 등)
         Map<String, ProcessStepOrder> stepMap = processStepOrderRepository.findAll().stream()
@@ -137,7 +157,7 @@ public class RiskGroupingService {
                 .count();
 
         return new RiskGroupingResponse(
-                hourStart,
+                from,
                 threshold,
                 risks.size(),
                 representatives.size(),
