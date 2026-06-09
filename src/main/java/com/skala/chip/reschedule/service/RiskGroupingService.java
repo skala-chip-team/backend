@@ -44,6 +44,20 @@ public class RiskGroupingService {
     private static final String RISK_LEVEL_HIGH = "High";
     private static final String RISK_LEVEL_CRITICAL = "Critical";
 
+    /** 위험 등급 심각도 순위 (대표 선정용). Critical > High > Medium > Low. */
+    private static int riskLevelRank(String level) {
+        if (level == null) {
+            return 0;
+        }
+        return switch (level.toLowerCase()) {
+            case "critical" -> 4;
+            case "high" -> 3;
+            case "medium" -> 2;
+            case "low" -> 1;
+            default -> 0;
+        };
+    }
+
     /** 위험 등급이 High 또는 Critical 이면 재조정(에이전트 호출) 트리거 대상. */
     private static boolean isHighOrCritical(String riskLevel) {
         return RISK_LEVEL_HIGH.equalsIgnoreCase(riskLevel)
@@ -108,7 +122,8 @@ public class RiskGroupingService {
                         (a, b) -> a
                 ));
 
-        // ① unit_id 별 그룹 → ② 가장 앞선 위험 step(min step_order)의 delay_risk 만 대표로
+        // ① unit_id 별 그룹 → ② 가장 심각한 위험(risk_level 최고, 동급이면 가장 앞선 step)을 대표로
+        //    넓은 윈도우에서 한 unit 이 여러 step 을 거쳐도 High/Critical 이 대표로 살아남게 한다.
         Map<String, DelayRisk> representativeByUnit = risks.stream()
                 .filter(r -> r.getUnit() != null && r.getStepId() != null)
                 .collect(Collectors.groupingBy(
@@ -116,9 +131,11 @@ public class RiskGroupingService {
                         Collectors.collectingAndThen(
                                 Collectors.toList(),
                                 list -> list.stream()
-                                        .min(Comparator.comparing(
-                                                r -> stepOrderOf(stepMap, r.getStepId()),
-                                                Comparator.nullsLast(Comparator.naturalOrder())))
+                                        .max(Comparator
+                                                .comparingInt((DelayRisk r) -> riskLevelRank(r.getRiskLevel()))
+                                                .thenComparing(
+                                                        r -> stepOrderOf(stepMap, r.getStepId()),
+                                                        Comparator.nullsLast(Comparator.reverseOrder())))
                                         .orElse(null)
                         )
                 ));
