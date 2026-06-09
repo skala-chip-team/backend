@@ -171,6 +171,20 @@ public class RescheduleGroupService {
                 .toList();
     }
 
+    /** 위험 등급 심각도 순위 (그룹 최고등급 산출용). Critical > High > Medium > Low. */
+    private static int riskLevelRank(String level) {
+        if (level == null) {
+            return 0;
+        }
+        return switch (level.toLowerCase()) {
+            case "critical" -> 4;
+            case "high" -> 3;
+            case "medium" -> 2;
+            case "low" -> 1;
+            default -> 0;
+        };
+    }
+
     private RescheduleGroupSummaryResponse toSummary(
             RescheduleGroup group,
             Map<String, ProcessStepOrder> stepMap,
@@ -188,12 +202,22 @@ public class RescheduleGroupService {
                         r.getEstimatedDelayHr()))
                 .toList();
 
+        // 그룹 내 최고 위험 등급 (알림 배지용)
+        String riskLevel = memberRiskIds.stream()
+                .map(riskById::get)
+                .filter(Objects::nonNull)
+                .map(DelayRisk::getRiskLevel)
+                .filter(Objects::nonNull)
+                .max(Comparator.comparingInt(RescheduleGroupService::riskLevelRank))
+                .orElse(null);
+
         return new RescheduleGroupSummaryResponse(
                 group.getGroupId(),
                 group.getDistrictId(),
                 group.getStepId(),
                 step != null ? step.getProcessStep() : null,
                 group.getMaxRiskScore(),
+                riskLevel,
                 group.getGroupStatus(),
                 group.getActedAt(),
                 affectedUnits
