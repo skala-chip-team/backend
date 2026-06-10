@@ -17,7 +17,7 @@ import lombok.NoArgsConstructor;
  * 운영 중에 role_name, description을 코드 변경 없이 DB에서 수정할 수 있다.
  */
 @Entity
-@Table(name = "user_role")
+@Table(name = "TC_USER_ROLE")
 @Getter
 @Builder
 @AllArgsConstructor(access = AccessLevel.PRIVATE)

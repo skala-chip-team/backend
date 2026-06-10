@@ -7,7 +7,7 @@ import jakarta.persistence.Table;
 import lombok.*;
 
 @Entity
-@Table(name = "district_master")
+@Table(name = "TM_DISTRICT_MASTER")
 @Getter
 @Setter
 @NoArgsConstructor

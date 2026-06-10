@@ -7,7 +7,7 @@ import jakarta.persistence.Table;
 import lombok.*;
 
 @Entity
-@Table(name = "process_step_order")
+@Table(name = "TM_PROCESS_STEP_ORDER")
 @Getter
 @Setter
 @NoArgsConstructor

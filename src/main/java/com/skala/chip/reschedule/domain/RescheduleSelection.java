@@ -16,7 +16,7 @@ import java.util.Map;
  * "어떤 재조정이 선택되었는지" 를 쉽게 조회하기 위한 테이블. 그룹당 1건만 확정한다.
  */
 @Entity
-@Table(name = "reschedule_selection")
+@Table(name = "TT_RESCHEDULE_SELECTION")
 @Getter
 @Setter
 @NoArgsConstructor

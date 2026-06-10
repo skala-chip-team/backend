@@ -6,7 +6,7 @@ import lombok.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "process_queue")
+@Table(name = "TT_PROCESS_QUEUE")
 @Getter
 @Setter
 @NoArgsConstructor
