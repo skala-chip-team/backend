@@ -12,7 +12,7 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "machine_status_event")
+@Table(name = "TH_MACHINE_STATUS_EVENT")
 @Getter
 @Builder
 @NoArgsConstructor
