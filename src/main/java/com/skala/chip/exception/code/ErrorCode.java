@@ -31,6 +31,13 @@ public enum ErrorCode {
     DUPLICATE_EMAIL(409, "이미 사용 중인 이메일입니다."),
     ROLE_NOT_FOUND(404, "존재하지 않는 역할입니다."),
 
+    // --- Reschedule ---
+    RESCHEDULE_GROUP_NOT_FOUND(404, "존재하지 않는 재조정 그룹입니다."),
+    RESCHEDULE_DETAIL_NOT_READY(400, "재조정안이 아직 생성되지 않았습니다."),
+    RESCHEDULE_STRATEGY_NOT_FOUND(404, "해당 전략의 재조정안을 찾을 수 없습니다."),
+    RESCHEDULE_EXPIRED(409, "만료된 재조정안은 선택할 수 없습니다."),
+    RESCHEDULE_GENERATE_FAILED(502, "재조정안 생성에 실패했습니다. (에이전트 호출 오류)"),
+
     // --- Common ---
     INVALID_INPUT(400, "잘못된 요청입니다."),
     INTERNAL_SERVER_ERROR(500, "서버 내부 오류가 발생했습니다.");

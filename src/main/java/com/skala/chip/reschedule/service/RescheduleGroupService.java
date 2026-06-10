@@ -9,12 +9,15 @@ import com.skala.chip.monitoring.repository.MachineRepository;
 import com.skala.chip.monitoring.repository.ProcessQueueRepository;
 import com.skala.chip.monitoring.repository.ProcessStepOrderRepository;
 import com.skala.chip.monitoring.repository.ScheduleRepository;
+import com.skala.chip.exception.code.ErrorCode;
+import com.skala.chip.exception.custom.BusinessException;
 import com.skala.chip.reschedule.domain.RescheduleGroup;
 import com.skala.chip.reschedule.domain.RescheduleSelection;
 import com.skala.chip.reschedule.dto.AffectedUnit;
 import com.skala.chip.reschedule.dto.RelatedRisk;
 import com.skala.chip.reschedule.dto.RescheduleGroupDetailResponse;
 import com.skala.chip.reschedule.dto.RescheduleGroupSummaryResponse;
+import com.skala.chip.reschedule.dto.RescheduleOption;
 import com.skala.chip.reschedule.dto.RescheduleSelectionResponse;
 import com.skala.chip.reschedule.dto.SelectRescheduleRequest;
 import com.skala.chip.reschedule.repository.RescheduleGroupRepository;
@@ -27,7 +30,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -47,6 +52,7 @@ public class RescheduleGroupService {
 
     private static final String GROUP_STATUS_APPROVED = "approved";
     private static final String GROUP_STATUS_PENDING = "pending";
+    private static final String GROUP_STATUS_EXPIRED = "expired";
     private static final String STATUS_FILTER_ACTIVE = "active";   // 진행중 = pending + approved
     private static final String SELECTION_STATUS_APPLIED = "applied";
 
@@ -67,8 +73,7 @@ public class RescheduleGroupService {
     @Transactional
     public void applyAgentResult(String groupId, Map<String, Object> runResult) {
         RescheduleGroup group = rescheduleGroupRepository.findById(groupId)
-                .orElseThrow(() -> new IllegalArgumentException(
-                        "존재하지 않는 groupId입니다: " + groupId));
+                .orElseThrow(() -> new BusinessException(ErrorCode.RESCHEDULE_GROUP_NOT_FOUND));
         group.setRescheduleDetail(runResult);
         rescheduleGroupRepository.save(group);
     }
@@ -77,8 +82,7 @@ public class RescheduleGroupService {
     public RescheduleGroupDetailResponse getGroupDetail(String groupId) {
 
         RescheduleGroup group = rescheduleGroupRepository.findById(groupId)
-                .orElseThrow(() -> new IllegalArgumentException(
-                        "존재하지 않는 groupId입니다: " + groupId));
+                .orElseThrow(() -> new BusinessException(ErrorCode.RESCHEDULE_GROUP_NOT_FOUND));
 
         ProcessStepOrder step = processStepOrderRepository.findById(group.getStepId())
                 .orElse(null);
@@ -101,6 +105,8 @@ public class RescheduleGroupService {
                 .map(this::toRelatedRisk)
                 .toList();
 
+        Map<String, Object> detail = group.getRescheduleDetail();
+
         return new RescheduleGroupDetailResponse(
                 group.getGroupId(),
                 group.getDistrictId(),
@@ -111,8 +117,82 @@ public class RescheduleGroupService {
                 group.getGroupStatus(),
                 group.getActedAt(),
                 delayRisks,
-                group.getRescheduleDetail()
+                extractRiskAnalysis(detail),
+                buildOptions(detail)
         );
+    }
+
+    /** reschedule_detail 에서 에이전트 원인분석(risk_analysis) 서브객체를 꺼낸다. 없으면 null. */
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> extractRiskAnalysis(Map<String, Object> detail) {
+        if (detail != null && detail.get("risk_analysis") instanceof Map<?, ?> ra) {
+            return (Map<String, Object>) ra;
+        }
+        return null;
+    }
+
+    /**
+     * reschedule_detail 의 reschedule_options 와 decision_summaries 를 합쳐
+     * 프론트가 바로 쓰는 전략별 카드(RescheduleOption) 목록으로 평탄화한다.
+     * 에이전트 미호출/실패 시 빈 리스트를 반환한다.
+     */
+    @SuppressWarnings("unchecked")
+    private List<RescheduleOption> buildOptions(Map<String, Object> detail) {
+        List<?> rawOptions = extractOptions(detail);
+        if (rawOptions == null || rawOptions.isEmpty()) {
+            return List.of();
+        }
+
+        // 전략명 -> decision_summary (요약/추천)
+        Map<String, Map<String, Object>> summaryByStrategy = new HashMap<>();
+        if (detail.get("decision_summaries") instanceof List<?> summaries) {
+            for (Object s : summaries) {
+                if (s instanceof Map<?, ?> sm && sm.get("strategy") instanceof String strategy) {
+                    summaryByStrategy.put(strategy, (Map<String, Object>) sm);
+                }
+            }
+        }
+
+        List<RescheduleOption> options = new ArrayList<>();
+        for (Object o : rawOptions) {
+            if (!(o instanceof Map<?, ?> om)) {
+                continue;
+            }
+            Map<String, Object> opt = (Map<String, Object>) om;
+            String strategy = asString(opt.get("strategy"));
+            Map<String, Object> sim = opt.get("dispatch_simulation") instanceof Map<?, ?> sm
+                    ? (Map<String, Object>) sm : Map.of();
+            Map<String, Object> summary = summaryByStrategy.getOrDefault(strategy, Map.of());
+
+            options.add(new RescheduleOption(
+                    strategy,
+                    asString(opt.get("analysis_status")),
+                    asString(opt.get("fallback_reason")),
+                    "recommend".equalsIgnoreCase(asString(summary.get("recommendation"))),
+                    asString(summary.get("summary")),
+                    opt.get("selected_yn") instanceof Boolean b && b,
+                    asDouble(sim.get("estimated_delay_hr_after")),
+                    asDouble(sim.get("avg_wait_time_min_after")),
+                    asDouble(sim.get("avg_utilization_rate_after")),
+                    asDouble(sim.get("max_wait_time_min_after")),
+                    asInt(sim.get("deadline_violation_count")),
+                    opt.get("after_schedule"),
+                    opt.get("queue_reorder")
+            ));
+        }
+        return options;
+    }
+
+    private static String asString(Object v) {
+        return v instanceof String s ? s : (v != null ? v.toString() : null);
+    }
+
+    private static Double asDouble(Object v) {
+        return v instanceof Number n ? n.doubleValue() : null;
+    }
+
+    private static Integer asInt(Object v) {
+        return v instanceof Number n ? n.intValue() : null;
     }
 
     /**
@@ -235,24 +315,27 @@ public class RescheduleGroupService {
     public RescheduleSelectionResponse selectStrategy(String groupId, SelectRescheduleRequest request) {
 
         RescheduleGroup group = rescheduleGroupRepository.findById(groupId)
-                .orElseThrow(() -> new IllegalArgumentException(
-                        "존재하지 않는 groupId입니다: " + groupId));
+                .orElseThrow(() -> new BusinessException(ErrorCode.RESCHEDULE_GROUP_NOT_FOUND));
+
+        // 만료된 제안은 적용 불가 (생성 후 1시간 경과). 뒤늦은 스케줄 반영을 막는다.
+        if (GROUP_STATUS_EXPIRED.equals(group.getGroupStatus())) {
+            throw new BusinessException(ErrorCode.RESCHEDULE_EXPIRED);
+        }
 
         if (request.strategy() == null || request.strategy().isBlank()) {
-            throw new IllegalArgumentException("strategy 는 필수입니다.");
+            throw new BusinessException(ErrorCode.INVALID_INPUT);
         }
 
         Map<String, Object> detail = group.getRescheduleDetail();
         List<?> options = extractOptions(detail);
         if (options == null || options.isEmpty()) {
-            throw new IllegalArgumentException("재조정안(reschedule_detail)이 아직 없습니다.");
+            throw new BusinessException(ErrorCode.RESCHEDULE_DETAIL_NOT_READY);
         }
 
         // 선택된 전략을 selected_yn=true 로 표시 (나머지는 false)
         Map<String, Object> selectedOption = markSelected(options, request.strategy());
         if (selectedOption == null) {
-            throw new IllegalArgumentException(
-                    "해당 strategy 의 재조정안을 찾을 수 없습니다: " + request.strategy());
+            throw new BusinessException(ErrorCode.RESCHEDULE_STRATEGY_NOT_FOUND);
         }
 
         LocalDateTime now = LocalDateTime.now();

@@ -7,6 +7,8 @@ import com.skala.chip.reschedule.domain.RescheduleGroup;
 import com.skala.chip.reschedule.dto.OrchestrationResponse;
 import com.skala.chip.reschedule.dto.OrchestrationResponse.GroupAgentResult;
 import com.skala.chip.reschedule.dto.RescheduleGroupDetailResponse;
+import com.skala.chip.exception.code.ErrorCode;
+import com.skala.chip.exception.custom.BusinessException;
 import com.skala.chip.reschedule.repository.RescheduleGroupRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -124,12 +126,11 @@ public class RescheduleOrchestrationService {
      */
     public RescheduleGroupDetailResponse generateForGroup(String groupId) {
         RescheduleGroup group = rescheduleGroupRepository.findById(groupId)
-                .orElseThrow(() -> new IllegalArgumentException(
-                        "존재하지 않는 groupId입니다: " + groupId));
+                .orElseThrow(() -> new BusinessException(ErrorCode.RESCHEDULE_GROUP_NOT_FOUND));
         GroupAgentResult result = generateInternal(group);
         if (!result.success()) {
-            throw new AiAgentClient.AiAgentException(
-                    "재조정안 생성 실패: " + result.error(), null);
+            log.warn("재조정안 생성 실패 (groupId={}): {}", groupId, result.error());
+            throw new BusinessException(ErrorCode.RESCHEDULE_GENERATE_FAILED);
         }
         return rescheduleGroupService.getGroupDetail(groupId);
     }
