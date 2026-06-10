@@ -13,7 +13,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "TT_MACHINE_STEP_MAP")
+@Table(name = "machine_step_map")
 @Getter
 @Builder
 @NoArgsConstructor

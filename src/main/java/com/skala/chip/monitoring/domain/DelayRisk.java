@@ -6,7 +6,7 @@ import lombok.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "TT_DELAY_RISK")
+@Table(name = "delay_risk")
 @Getter
 @Setter
 @NoArgsConstructor

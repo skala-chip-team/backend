@@ -22,7 +22,7 @@ import java.time.LocalDateTime;
  * PostgreSQL에서 user는 예약어이므로 식별자로 그대로 사용하면 SQL 오류가 발생한다.
  */
 @Entity
-@Table(name = "TM_USER")
+@Table(name = "\"user\"")
 @Getter
 @Builder
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
