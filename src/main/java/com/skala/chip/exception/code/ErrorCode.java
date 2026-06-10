@@ -30,6 +30,7 @@ public enum ErrorCode {
     INACTIVE_USER(403, "비활성화된 계정입니다."),
     DUPLICATE_EMAIL(409, "이미 사용 중인 이메일입니다."),
     ROLE_NOT_FOUND(404, "존재하지 않는 역할입니다."),
+    DISTRICT_NOT_FOUND(404, "존재하지 않는 구역입니다."),
 
     // --- Reschedule ---
     RESCHEDULE_GROUP_NOT_FOUND(404, "존재하지 않는 재조정 그룹입니다."),

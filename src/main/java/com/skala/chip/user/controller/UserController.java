@@ -12,11 +12,15 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 @Tag(name = "User", description = "회원 관리 API")
 @SecurityRequirement(name = "BearerAuth")
@@ -26,6 +30,22 @@ import org.springframework.web.bind.annotation.RestController;
 public class UserController {
 
     private final UserService userService;
+
+    @Operation(summary = "사용자 목록 조회", description = "전체 사용자와 각 사용자의 담당 구역(권한)을 반환한다.")
+    @PreAuthorize("hasRole('ADMIN')")
+    @GetMapping
+    public ResponseEntity<ApiResponse<List<UserResponseDTO.UserSummary>>> getUsers() {
+        return ResponseEntity.ok(ApiResponse.success(userService.getUsers()));
+    }
+
+    @Operation(summary = "구역 권한 배정", description = "사용자의 담당 구역을 요청한 집합으로 전체 치환한다. (빈 리스트면 전체 해제)")
+    @PreAuthorize("hasRole('ADMIN')")
+    @PutMapping("/{userId}/districts")
+    public ResponseEntity<ApiResponse<UserResponseDTO.UserDistricts>> assignDistricts(
+            @PathVariable String userId,
+            @Valid @RequestBody UserRequestDTO.DistrictAssignRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(userService.assignDistricts(userId, request)));
+    }
 
     @Operation(summary = "회원 삭제")
     @PreAuthorize("hasRole('ADMIN')")
