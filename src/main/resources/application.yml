@@ -8,7 +8,10 @@ spring:
   jpa:
     defer-datasource-initialization: true
     hibernate:
-      ddl-auto: update
+      # validate: 엔티티-DB 스키마 일치만 검증하고 테이블을 생성/변경하지 않는다.
+      # 스키마는 AI 시뮬레이션/DB 측이 소유하므로 백엔드가 자동 DDL(update)로
+      # 빈 테이블을 만들거나 스키마 불일치를 가리는 것을 막는다. (불일치 시 기동 실패)
+      ddl-auto: ${JPA_DDL_AUTO:validate}
     show-sql: true
     open-in-view: false
     properties:
