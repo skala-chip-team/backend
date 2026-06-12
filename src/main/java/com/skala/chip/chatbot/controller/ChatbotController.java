@@ -10,10 +10,14 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 /**
  * 챗봇 API 컨트롤러.
@@ -47,5 +51,29 @@ public class ChatbotController {
             @AuthenticationPrincipal String email,
             @Valid @RequestBody ChatbotRequestDTO.SendMessage request) {
         return ApiResponse.success(chatbotService.sendMessage(email, request));
+    }
+
+    /**
+     * 내 챗봇 세션 목록 조회 (최신순). 화면에서 지난 대화 목록을 그릴 때 사용한다.
+     */
+    @Operation(summary = "챗봇 세션 목록 조회",
+            description = "현재 로그인 사용자의 챗봇 대화 세션 목록을 최신순으로 반환한다.")
+    @GetMapping("/sessions")
+    public ApiResponse<List<ChatbotResponseDTO.SessionSummary>> getSessions(
+            @AuthenticationPrincipal String email) {
+        return ApiResponse.success(chatbotService.getSessions(email));
+    }
+
+    /**
+     * 특정 세션의 대화 내역 조회 (시간순). 화면에서 지난 대화를 복원할 때 사용한다.
+     * 다른 사용자의 세션이면 403.
+     */
+    @Operation(summary = "챗봇 세션 대화 내역 조회",
+            description = "지정한 세션의 메시지를 시간순으로 반환한다. 본인 세션이 아니면 403.")
+    @GetMapping("/sessions/{sessionId}/messages")
+    public ApiResponse<List<ChatbotResponseDTO.MessageDetail>> getMessages(
+            @AuthenticationPrincipal String email,
+            @PathVariable String sessionId) {
+        return ApiResponse.success(chatbotService.getMessages(email, sessionId));
     }
 }

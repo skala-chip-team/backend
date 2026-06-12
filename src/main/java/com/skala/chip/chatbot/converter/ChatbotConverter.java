@@ -2,8 +2,10 @@ package com.skala.chip.chatbot.converter;
 
 import com.skala.chip.chatbot.client.AgentChatRequest;
 import com.skala.chip.chatbot.client.AgentChatResponse;
+import com.skala.chip.chatbot.domain.ChatbotMessage;
 import com.skala.chip.chatbot.dto.ChatbotRequestDTO;
 import com.skala.chip.chatbot.dto.ChatbotResponseDTO;
+import com.skala.chip.chatbot.repository.ChatbotSessionSummaryProjection;
 
 /**
  * 챗봇 DTO ↔ 에이전트 통신 모델 변환기.
@@ -35,6 +37,26 @@ public class ChatbotConverter {
                 .sessionId(response.getSessionId())
                 .answer(response.getAnswer())
                 .toolCalls(response.getToolCalls())
+                .build();
+    }
+
+    /** 세션 목록 프로젝션 → 세션 요약 DTO. */
+    public static ChatbotResponseDTO.SessionSummary toSessionSummary(ChatbotSessionSummaryProjection p) {
+        return ChatbotResponseDTO.SessionSummary.builder()
+                .sessionId(p.getSessionId())
+                .startedAt(p.getStartedAt())
+                .endedAt(p.getEndedAt())
+                .messageCount(p.getMessageCount())
+                .build();
+    }
+
+    /** 메시지 엔티티 → 메시지 DTO. */
+    public static ChatbotResponseDTO.MessageDetail toMessageDetail(ChatbotMessage m) {
+        return ChatbotResponseDTO.MessageDetail.builder()
+                .messageId(m.getMessageId())
+                .messageType(m.getMessageType())
+                .content(m.getContent())
+                .createdAt(m.getCreatedAt())
                 .build();
     }
 }
