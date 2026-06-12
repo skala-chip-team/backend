@@ -29,8 +29,7 @@ public class ProcessQueue {
     @JoinColumn(name = "unit_id")
     private UnitMaster unit;
 
-    // 실제 process_queue 테이블에 없는 컬럼들(AI sim 스키마 기준) → 조회 SELECT 에서 제외.
-    @Transient
+    @Column(name = "option_id")
     private String optionId;
 
     @Column(name = "queue_position")
@@ -39,9 +38,9 @@ public class ProcessQueue {
     @Column(name = "enqueue_time")
     private LocalDateTime enqueueTime;
 
-    @Transient
+    @Column(name = "actual_wait_time")
     private Double actualWaitTime;
 
-    @Transient
+    @Column(name = "status")
     private String status;
 }

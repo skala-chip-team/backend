@@ -5,6 +5,7 @@ import com.skala.chip.monitoring.dto.DelayRiskResponseDTO;
 import com.skala.chip.monitoring.dto.DistrictMachineResponseDTO;
 import com.skala.chip.monitoring.dto.DistrictSummaryResponseDTO;
 import com.skala.chip.monitoring.dto.MachineRequestDTO;
+import com.skala.chip.monitoring.dto.MonitoringOverviewResponseDTO;
 import com.skala.chip.monitoring.dto.MachineResponseDTO;
 import com.skala.chip.monitoring.dto.QueueResponseDTO;
 import com.skala.chip.monitoring.dto.ScheduleGanttResponseDTO;
@@ -17,6 +18,7 @@ import com.skala.chip.monitoring.service.DelayRiskService;
 import com.skala.chip.monitoring.service.DistrictMachineService;
 import com.skala.chip.monitoring.service.DistrictSummaryService;
 import com.skala.chip.monitoring.service.MachineService;
+import com.skala.chip.monitoring.service.MonitoringOverviewService;
 import com.skala.chip.monitoring.service.ScheduleGanttService;
 import com.skala.chip.monitoring.service.StepQueueService;
 import com.skala.chip.monitoring.service.QueueService;
@@ -46,6 +48,15 @@ public class MonitoringController {
     private final ScheduleGanttService scheduleGanttService;
     private final StepQueueService stepQueueService;
     private final DistrictMachineService districtMachineService;
+    private final MonitoringOverviewService monitoringOverviewService;
+
+    @Operation(summary = "전체 대시보드 (모든 구역 원자적 스냅샷)",
+            description = "한 번의 시뮬 스냅샷으로 전 구역의 summary/machines/stepQueues/reschedule 를 반환한다. "
+                    + "summary.totalMachineCount == machines.length 가 항상 보장된다.")
+    @GetMapping("/overview")
+    public ApiResponse<List<MonitoringOverviewResponseDTO.DistrictOverview>> getOverview() {
+        return ApiResponse.success(monitoringOverviewService.getOverview());
+    }
 
     @Operation(summary = "전체 장비 조회")
     @GetMapping("/machines")
