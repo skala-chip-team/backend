@@ -9,6 +9,7 @@ import org.springframework.web.client.RestClientException;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -52,11 +53,17 @@ public class AiAgentClient {
 
     /**
      * 에이전트 실행. 대표 risk_id 에 대한 재조정안(reschedule_options 포함)을 생성한다.
+     * groupId 는 탐지 단계에서 이미 생성된 reschedule_group.group_id 로, AI 가 결과를
+     * 어느 그룹에 대응시킬지 식별하도록 함께 전달한다. (null 이면 생략)
      * 반환 Map 은 RunResponse 전체(risk_analysis, reschedule_result, decision_summaries ...).
      */
     @SuppressWarnings("unchecked")
-    public Map<String, Object> run(String riskId) {
-        Map<String, Object> body = Map.of("risk_id", riskId);
+    public Map<String, Object> run(String riskId, String groupId) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("risk_id", riskId);
+        if (groupId != null) {
+            body.put("group_id", groupId);
+        }
         try {
             return aiRestClient.post()
                     .uri("/run")
@@ -65,8 +72,8 @@ public class AiAgentClient {
                     .retrieve()
                     .body(Map.class);
         } catch (RestClientException e) {
-            throw new AiAgentException("에이전트 실행(/run) 호출 실패 (risk_id=" + riskId + "): "
-                    + e.getMessage(), e);
+            throw new AiAgentException("에이전트 실행(/run) 호출 실패 (risk_id=" + riskId
+                    + ", group_id=" + groupId + "): " + e.getMessage(), e);
         }
     }
 

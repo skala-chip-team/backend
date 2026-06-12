@@ -146,7 +146,7 @@ public class RescheduleOrchestrationService {
                     "대표 risk_id 가 없습니다 (member_risk_ids 비어있음)");
         }
         try {
-            var runResult = aiAgentClient.run(riskId);
+            var runResult = aiAgentClient.run(riskId, group.getGroupId());
             rescheduleGroupService.applyAgentResult(group.getGroupId(), runResult);
             return new GroupAgentResult(group.getGroupId(), riskId, true, null);
         } catch (RuntimeException e) {
