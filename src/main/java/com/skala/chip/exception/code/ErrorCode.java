@@ -39,6 +39,9 @@ public enum ErrorCode {
     RESCHEDULE_EXPIRED(409, "만료된 재조정안은 선택할 수 없습니다."),
     RESCHEDULE_GENERATE_FAILED(502, "재조정안 생성에 실패했습니다. (에이전트 호출 오류)"),
 
+    // --- Order ---
+    ORDER_NOT_FOUND(404, "존재하지 않는 주문입니다."),
+
     // --- Chatbot ---
     // 백엔드는 프론트엔드와 챗봇 에이전트(ai_agent /chat) 사이를 중계한다.
     // 에이전트가 내려준 상태코드(403/404/409)는 의미가 보존되도록 매핑하고,
