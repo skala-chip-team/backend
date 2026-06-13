@@ -177,10 +177,59 @@ public class RescheduleGroupService {
                     asDouble(sim.get("max_wait_time_min_after")),
                     asInt(sim.get("deadline_violation_count")),
                     opt.get("after_schedule"),
-                    opt.get("queue_reorder")
+                    opt.get("queue_reorder"),
+                    buildMetricsComparison(summary.get("metrics_comparison"))
             ));
         }
         return options;
+    }
+
+    /**
+     * decision_summaries[i].metrics_comparison 에서 적용 전/후 비교(생산량/지연/부하 차이)를 추출한다.
+     * 구조: { throughput.completed_units, delay.{cumulative_delay_hr, avg_queue_wait_min,
+     *        deadline_violation_count}, load.overall } 각각 { before, after, delta }.
+     */
+    @SuppressWarnings("unchecked")
+    private RescheduleOption.MetricsComparison buildMetricsComparison(Object mcRaw) {
+        if (!(mcRaw instanceof Map<?, ?> mc)) {
+            return null;
+        }
+        Map<String, Object> mcMap = (Map<String, Object>) mc;
+        Map<String, Object> throughput = asMap(mcMap.get("throughput"));
+        Map<String, Object> delay = asMap(mcMap.get("delay"));
+        Map<String, Object> load = asMap(mcMap.get("load"));
+
+        RescheduleOption.Delta completedUnits = toDelta(throughput.get("completed_units"));
+        RescheduleOption.Delta cumulativeDelayHr = toDelta(delay.get("cumulative_delay_hr"));
+        RescheduleOption.Delta avgQueueWaitMin = toDelta(delay.get("avg_queue_wait_min"));
+        RescheduleOption.Delta deadlineViolation = toDelta(delay.get("deadline_violation_count"));
+        RescheduleOption.Delta overallLoad = toDelta(load.get("overall"));
+
+        if (completedUnits == null && cumulativeDelayHr == null && avgQueueWaitMin == null
+                && deadlineViolation == null && overallLoad == null) {
+            return null;
+        }
+        return new RescheduleOption.MetricsComparison(
+                completedUnits, cumulativeDelayHr, avgQueueWaitMin, deadlineViolation, overallLoad);
+    }
+
+    /** { before, after, delta } 묶음을 Delta 로. 셋 다 없으면 null. */
+    private RescheduleOption.Delta toDelta(Object raw) {
+        if (!(raw instanceof Map<?, ?> m)) {
+            return null;
+        }
+        Double before = asDouble(m.get("before"));
+        Double after = asDouble(m.get("after"));
+        Double delta = asDouble(m.get("delta"));
+        if (before == null && after == null && delta == null) {
+            return null;
+        }
+        return new RescheduleOption.Delta(before, after, delta);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, Object> asMap(Object v) {
+        return v instanceof Map<?, ?> m ? (Map<String, Object>) m : Map.of();
     }
 
     private static String asString(Object v) {

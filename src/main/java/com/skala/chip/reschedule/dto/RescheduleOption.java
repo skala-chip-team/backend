@@ -24,5 +24,23 @@ public record RescheduleOption(
 
         // 적용 대상 원본 (스케줄 미리보기/큐 변경표용). 구조는 에이전트 출력 그대로.
         Object afterSchedule,             // { units: [ { unit_id, steps: [ { step_id, start, finish, machine_id } ] } ] }
-        Object queueReorder              // [ { unit_id, queue_id, original_queue_position, new_queue_position, priority_score } ]
-) {}
+        Object queueReorder,             // [ { unit_id, queue_id, original_queue_position, new_queue_position, priority_score } ]
+
+        // 적용 전/후 비교 지표 (decision_summaries.metrics_comparison). 없으면 null.
+        MetricsComparison metricsComparison
+) {
+
+    /**
+     * 재조정 적용 전/후 비교. 생산량 차이를 비롯한 핵심 지표의 before/after/delta.
+     */
+    public record MetricsComparison(
+            Delta completedUnits,          // 생산량(완료 unit 수) 차이 — throughput.completed_units
+            Delta cumulativeDelayHr,       // 누적 지연(시간) 차이 — delay.cumulative_delay_hr
+            Delta avgQueueWaitMin,         // 평균 대기(분) 차이 — delay.avg_queue_wait_min
+            Delta deadlineViolationCount,  // 납기 위반 수 차이 — delay.deadline_violation_count
+            Delta overallLoad              // 전체 장비 부하율 차이 — load.overall
+    ) {}
+
+    /** before/after/delta 한 묶음. */
+    public record Delta(Double before, Double after, Double delta) {}
+}
