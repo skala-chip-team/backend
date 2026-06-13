@@ -48,7 +48,8 @@ public class SecurityConfig {
                                 "/v3/api-docs/**",
                                 "/api/monitoring/**",
                                 "/api/queues/**",
-                                "/api/reschedule/**"
+                                "/api/reschedule/**",
+                                "/api/orders/**"
                         ).permitAll()
                         .anyRequest().authenticated()
                 )
