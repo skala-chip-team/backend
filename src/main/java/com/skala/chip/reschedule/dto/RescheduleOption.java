@@ -1,5 +1,7 @@
 package com.skala.chip.reschedule.dto;
 
+import java.util.List;
+
 /**
  * 재조정 상세 페이지의 전략별 재조정안 카드.
  *
@@ -27,7 +29,14 @@ public record RescheduleOption(
         Object queueReorder,             // [ { unit_id, queue_id, original_queue_position, new_queue_position, priority_score } ]
 
         // 적용 전/후 비교 지표 (decision_summaries.metrics_comparison). 없으면 null.
-        MetricsComparison metricsComparison
+        MetricsComparison metricsComparison,
+
+        // 추천 근거 (decision_summaries)
+        String recommendationReasoning,    // recommendation_reasoning
+        List<KeyPoint> keyImprovements,    // key_improvements [{ description, magnitude }]
+        List<KeyPoint> keyConcerns,        // key_concerns     [{ description, magnitude, mitigation }]
+        DetailedReport detailedReport,     // detailed_report (설명 텍스트)
+        DeadlineImpact deadlineImpact      // deadline_impact (납기 영향 수치)
 ) {
 
     /**
@@ -43,4 +52,24 @@ public record RescheduleOption(
 
     /** before/after/delta 한 묶음. */
     public record Delta(Double before, Double after, Double delta) {}
+
+    /** 개선점/우려점 한 항목. mitigation 은 우려점(key_concerns)에만 존재(없으면 null). */
+    public record KeyPoint(String description, String magnitude, String mitigation) {}
+
+    /** 상세 리포트 텍스트 (detailed_report). */
+    public record DetailedReport(
+            String executiveSummary,
+            String riskBackground,
+            String metricAnalysis,
+            String tradeoffs,
+            String decisionBasis
+    ) {}
+
+    /** 납기 영향 (deadline_impact). */
+    public record DeadlineImpact(
+            Integer rescuedCount,
+            Integer stillAtRiskCount,
+            Integer newlyAtRiskCount,
+            Integer newlyViolatedCount
+    ) {}
 }

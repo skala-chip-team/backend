@@ -28,6 +28,10 @@ public record RescheduleGroupDetailResponse(
         // 에이전트 원인분석 (risk_analysis). 에이전트 미호출 시 null.
         Map<String, Object> riskAnalysis,
 
+        // 적용 전 스케줄 (supervisor_payload.before_schedule). 옵션별 afterSchedule 와 비교용. 없으면 null.
+        // 구조: { units: [ { unit_id, steps: [ { step_id, start, finish, machine_id } ] } ] }
+        Object beforeSchedule,
+
         // 전략별 재조정안 카드. 에이전트 미호출/실패 시 빈 리스트.
         List<RescheduleOption> options
 ) {}

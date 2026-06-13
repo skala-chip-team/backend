@@ -118,8 +118,17 @@ public class RescheduleGroupService {
                 group.getActedAt(),
                 delayRisks,
                 extractRiskAnalysis(detail),
+                extractBeforeSchedule(detail),
                 buildOptions(detail)
         );
+    }
+
+    /** reschedule_detail.supervisor_payload.before_schedule (적용 전 스케줄) 추출. 없으면 null. */
+    private Object extractBeforeSchedule(Map<String, Object> detail) {
+        if (detail != null && detail.get("supervisor_payload") instanceof Map<?, ?> sp) {
+            return ((Map<?, ?>) sp).get("before_schedule");
+        }
+        return null;
     }
 
     /** reschedule_detail 에서 에이전트 원인분석(risk_analysis) 서브객체를 꺼낸다. 없으면 null. */
@@ -178,10 +187,57 @@ public class RescheduleGroupService {
                     asInt(sim.get("deadline_violation_count")),
                     opt.get("after_schedule"),
                     opt.get("queue_reorder"),
-                    buildMetricsComparison(summary.get("metrics_comparison"))
+                    buildMetricsComparison(summary.get("metrics_comparison")),
+                    asString(summary.get("recommendation_reasoning")),
+                    buildKeyPoints(summary.get("key_improvements")),
+                    buildKeyPoints(summary.get("key_concerns")),
+                    buildDetailedReport(summary.get("detailed_report")),
+                    buildDeadlineImpact(summary.get("deadline_impact"))
             ));
         }
         return options;
+    }
+
+    /** key_improvements / key_concerns → KeyPoint 목록. 비었으면 빈 리스트. */
+    private List<RescheduleOption.KeyPoint> buildKeyPoints(Object raw) {
+        if (!(raw instanceof List<?> list)) {
+            return List.of();
+        }
+        List<RescheduleOption.KeyPoint> points = new ArrayList<>();
+        for (Object o : list) {
+            if (o instanceof Map<?, ?> m) {
+                points.add(new RescheduleOption.KeyPoint(
+                        asString(m.get("description")),
+                        asString(m.get("magnitude")),
+                        asString(m.get("mitigation"))));
+            }
+        }
+        return points;
+    }
+
+    /** detailed_report → DetailedReport. 없으면 null. */
+    private RescheduleOption.DetailedReport buildDetailedReport(Object raw) {
+        if (!(raw instanceof Map<?, ?> m)) {
+            return null;
+        }
+        return new RescheduleOption.DetailedReport(
+                asString(m.get("executive_summary")),
+                asString(m.get("risk_background")),
+                asString(m.get("metric_analysis")),
+                asString(m.get("tradeoffs")),
+                asString(m.get("decision_basis")));
+    }
+
+    /** deadline_impact → DeadlineImpact. 없으면 null. */
+    private RescheduleOption.DeadlineImpact buildDeadlineImpact(Object raw) {
+        if (!(raw instanceof Map<?, ?> m)) {
+            return null;
+        }
+        return new RescheduleOption.DeadlineImpact(
+                asInt(m.get("rescued_count")),
+                asInt(m.get("still_at_risk_count")),
+                asInt(m.get("newly_at_risk_count")),
+                asInt(m.get("newly_violated_count")));
     }
 
     /**
