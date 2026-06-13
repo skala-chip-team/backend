@@ -39,6 +39,18 @@ public enum ErrorCode {
     RESCHEDULE_EXPIRED(409, "만료된 재조정안은 선택할 수 없습니다."),
     RESCHEDULE_GENERATE_FAILED(502, "재조정안 생성에 실패했습니다. (에이전트 호출 오류)"),
 
+    // --- Order ---
+    ORDER_NOT_FOUND(404, "존재하지 않는 주문입니다."),
+
+    // --- Chatbot ---
+    // 백엔드는 프론트엔드와 챗봇 에이전트(ai_agent /chat) 사이를 중계한다.
+    // 에이전트가 내려준 상태코드(403/404/409)는 의미가 보존되도록 매핑하고,
+    // 연결 실패/5xx 는 502(CHATBOT_AGENT_ERROR)로 묶는다.
+    CHATBOT_REF_TIME_REQUIRED(409, "ref_time을 지정하거나 시뮬레이션을 먼저 시작해야 합니다."),
+    CHATBOT_SESSION_NOT_FOUND(404, "챗봇 세션을 찾을 수 없습니다."),
+    CHATBOT_SESSION_FORBIDDEN(403, "다른 사용자의 챗봇 세션입니다."),
+    CHATBOT_AGENT_ERROR(502, "챗봇 에이전트 호출에 실패했습니다."),
+
     // --- Common ---
     INVALID_INPUT(400, "잘못된 요청입니다."),
     INTERNAL_SERVER_ERROR(500, "서버 내부 오류가 발생했습니다.");
