@@ -129,8 +129,12 @@ public class RescheduleOrchestrationService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESCHEDULE_GROUP_NOT_FOUND));
         GroupAgentResult result = generateInternal(group);
         if (!result.success()) {
-            log.warn("재조정안 생성 실패 (groupId={}): {}", groupId, result.error());
-            throw new BusinessException(ErrorCode.RESCHEDULE_GENERATE_FAILED);
+            log.warn("재조정안 생성 실패 (groupId={}, notActionable={}): {}",
+                    groupId, result.notActionable(), result.error());
+            // 현재 큐에 처리 가능한 위험이 없으면 서버 오류(502)가 아니라 409 로 명확히 알린다.
+            throw new BusinessException(result.notActionable()
+                    ? ErrorCode.RESCHEDULE_NOT_ACTIONABLE
+                    : ErrorCode.RESCHEDULE_GENERATE_FAILED);
         }
         return rescheduleGroupService.getGroupDetail(groupId);
     }
@@ -141,20 +145,25 @@ public class RescheduleOrchestrationService {
      */
     private GroupAgentResult generateInternal(RescheduleGroup group) {
         // 에이전트 호출 직전, 그룹의 (구역, step) 기준으로 member_risk_ids 를 현재 delay_risk 에 맞춰
-        // 재동기화한다. 모델 재예측으로 risk_id 가 갈려 stale 가 된 그룹의 404(risk_id not found)를 막는다.
+        // 재동기화한다(stale risk_id 404 방지). 현재 큐에 actionable 위험이 없으면 null.
         String riskId = rescheduleGroupService.resyncLiveRisks(group.getGroupId());
         if (riskId == null) {
-            return new GroupAgentResult(group.getGroupId(), null, false,
-                    "대표 risk_id 가 없습니다 (현재 delay_risk·member_risk_ids 모두 비어있음)");
+            return new GroupAgentResult(group.getGroupId(), null, false, true,
+                    "현재 대기열에 actionable 위험이 없습니다 (해당 unit 이 이미 처리됨)");
         }
         try {
             var runResult = aiAgentClient.run(riskId, group.getGroupId());
             rescheduleGroupService.applyAgentResult(group.getGroupId(), runResult);
-            return new GroupAgentResult(group.getGroupId(), riskId, true, null);
+            return new GroupAgentResult(group.getGroupId(), riskId, true, false, null);
+        } catch (AiAgentClient.NotActionableException e) {
+            // /run 404·409: 위험이 현재 큐에서 처리 불가. 서버 오류 아님.
+            log.info("그룹 {} 재조정 불가 (risk_id={}): {}",
+                    group.getGroupId(), riskId, e.getMessage());
+            return new GroupAgentResult(group.getGroupId(), riskId, false, true, e.getMessage());
         } catch (RuntimeException e) {
             log.warn("그룹 {} 에이전트 호출 실패 (risk_id={}): {}",
                     group.getGroupId(), riskId, e.getMessage());
-            return new GroupAgentResult(group.getGroupId(), riskId, false, e.getMessage());
+            return new GroupAgentResult(group.getGroupId(), riskId, false, false, e.getMessage());
         }
     }
 }

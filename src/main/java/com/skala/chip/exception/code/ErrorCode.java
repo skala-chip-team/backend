@@ -37,6 +37,7 @@ public enum ErrorCode {
     RESCHEDULE_DETAIL_NOT_READY(400, "재조정안이 아직 생성되지 않았습니다."),
     RESCHEDULE_STRATEGY_NOT_FOUND(404, "해당 전략의 재조정안을 찾을 수 없습니다."),
     RESCHEDULE_EXPIRED(409, "만료된 재조정안은 선택할 수 없습니다."),
+    RESCHEDULE_NOT_ACTIONABLE(409, "현재 대기열에 재조정 가능한 위험이 없습니다. (해당 unit이 이미 처리되었습니다)"),
     RESCHEDULE_GENERATE_FAILED(502, "재조정안 생성에 실패했습니다. (에이전트 호출 오류)"),
 
     // --- Order ---

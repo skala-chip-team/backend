@@ -19,6 +19,7 @@ public record OrchestrationResponse(
             String groupId,
             String riskId,
             boolean success,
+            boolean notActionable,    // 현재 큐에 처리 가능한 위험이 없어 건너뜀(404/409). 서버 오류 아님.
             String error              // 실패 메시지 (성공 시 null)
     ) {}
 }

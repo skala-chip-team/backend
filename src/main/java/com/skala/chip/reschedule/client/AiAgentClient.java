@@ -6,6 +6,7 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.HttpClientErrorException;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -71,6 +72,15 @@ public class AiAgentClient {
                     .body(body)
                     .retrieve()
                     .body(Map.class);
+        } catch (HttpClientErrorException e) {
+            // 404(risk_id not found) / 409(risk unit is not in the current queue) 은 서버 오류가 아니라
+            // "현재 큐에서 처리할 수 없는 위험" 이라는 데이터 조건이다. 502 가 아닌 별도 예외로 구분한다.
+            if (e.getStatusCode().value() == 404 || e.getStatusCode().value() == 409) {
+                throw new NotActionableException("재조정 불가 위험 (risk_id=" + riskId
+                        + ", group_id=" + groupId + "): " + e.getResponseBodyAsString(), e);
+            }
+            throw new AiAgentException("에이전트 실행(/run) 호출 실패 (risk_id=" + riskId
+                    + ", group_id=" + groupId + "): " + e.getMessage(), e);
         } catch (RestClientException e) {
             throw new AiAgentException("에이전트 실행(/run) 호출 실패 (risk_id=" + riskId
                     + ", group_id=" + groupId + "): " + e.getMessage(), e);
@@ -80,6 +90,16 @@ public class AiAgentClient {
     /** AI 서비스 호출 실패를 나타내는 런타임 예외. */
     public static class AiAgentException extends RuntimeException {
         public AiAgentException(String message, Throwable cause) {
+            super(message, cause);
+        }
+    }
+
+    /**
+     * 위험이 현재 큐에서 처리 불가능함을 나타내는 예외(/run 404·409).
+     * 에이전트/서버 장애가 아니라 데이터 상태이므로 호출측에서 502 대신 409 로 매핑한다.
+     */
+    public static class NotActionableException extends RuntimeException {
+        public NotActionableException(String message, Throwable cause) {
             super(message, cause);
         }
     }

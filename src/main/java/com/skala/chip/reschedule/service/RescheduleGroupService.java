@@ -36,6 +36,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -86,10 +87,14 @@ public class RescheduleGroupService {
      * 에이전트(/run)를 호출하면 404(risk_id not found)가 난다.
      *
      * 그룹의 정체성은 (구역, step) 이고 risk_id 는 포인터일 뿐이므로, 생성 직전에 (구역, step) 의
-     * 현재 위험을 unit 별 대표(최고 delay_probability)로 다시 뽑아 member_risk_ids 를 갱신한다.
-     * 현재 위험이 없으면 기존 member_risk_ids 의 첫 항목을 그대로 사용한다(자가복구 불가).
+     * 현재 위험 중 unit 이 지금 대기열(process_queue)에 있는 것(=actionable)만 골라 unit 별 대표
+     * (최고 delay_probability)로 member_risk_ids 를 갱신한다.
      *
-     * @return 갱신된 대표 risk_id. 현재 위험도 기존 위험도 없으면 null.
+     * 큐에 없는 unit 의 위험은 에이전트(/run)가 409(no longer actionable)로 거부하므로 제외한다.
+     * 시뮬이 진행되면 위험 발생 시점의 unit 이 이미 큐를 떠날 수 있어, 최고 위험이라도
+     * actionable 이 아닐 수 있다.
+     *
+     * @return 갱신된 대표 risk_id. 현재 큐에 actionable 위험이 없으면 null.
      */
     @Transactional
     public String resyncLiveRisks(String groupId) {
@@ -99,15 +104,22 @@ public class RescheduleGroupService {
         List<DelayRisk> live = delayRiskRepository
                 .findByDistrict_DistrictIdAndStepId(group.getDistrictId(), group.getStepId());
 
-        // (구역, step) 의 현재 위험이 없으면 기존 member_risk_ids 로 폴백
+        // (구역, step) 의 현재 위험이 없으면 자가복구 불가
         if (live.isEmpty()) {
-            List<String> existing = group.getMemberRiskIds();
-            return (existing != null && !existing.isEmpty()) ? existing.get(0) : null;
+            return null;
         }
 
-        // unit 별 대표(최고 delay_probability) → delay_probability 내림차순으로 정렬
+        // 현재 대기열에 있는 unit 만 actionable. 그 unit 들의 위험만 남긴다.
+        Set<String> queuedUnitIds = processQueueRepository
+                .findByDistrict_DistrictIdAndStepId(group.getDistrictId(), group.getStepId()).stream()
+                .filter(q -> q.getUnit() != null && q.getUnit().getUnitId() != null)
+                .map(q -> q.getUnit().getUnitId())
+                .collect(Collectors.toSet());
+
+        // unit 별 대표(최고 delay_probability) → delay_probability 내림차순으로 정렬 (actionable 만)
         List<DelayRisk> representatives = live.stream()
                 .filter(r -> r.getUnit() != null && r.getUnit().getUnitId() != null)
+                .filter(r -> queuedUnitIds.contains(r.getUnit().getUnitId()))
                 .collect(Collectors.groupingBy(
                         r -> r.getUnit().getUnitId(),
                         Collectors.collectingAndThen(
@@ -124,9 +136,9 @@ public class RescheduleGroupService {
                         Comparator.nullsLast(Comparator.reverseOrder())))
                 .toList();
 
+        // 현재 큐에 actionable 위험이 없으면 자가복구 불가 (호출측에서 409 로 처리)
         if (representatives.isEmpty()) {
-            List<String> existing = group.getMemberRiskIds();
-            return (existing != null && !existing.isEmpty()) ? existing.get(0) : null;
+            return null;
         }
 
         List<String> memberRiskIds = representatives.stream()
