@@ -117,8 +117,13 @@ public class RescheduleOrchestrationService {
 
         int generated = 0;
         for (RescheduleGroup group : targets) {
-            if (generateInternal(group).success()) {
+            GroupAgentResult result = generateInternal(group);
+            if (result.success()) {
                 generated++;
+            } else if (result.notActionable()) {
+                // 큐가 비어(재배치 대상 없음) 생성 자체가 불가능한 phantom 그룹은 자동 만료한다.
+                // (success 옵션이 있으면 expireIfNoProposal 이 보존하므로 안전)
+                rescheduleGroupService.expireIfNoProposal(group.getGroupId());
             }
         }
         return generated;
