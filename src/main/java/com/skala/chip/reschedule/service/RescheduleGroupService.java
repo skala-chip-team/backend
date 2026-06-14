@@ -78,6 +78,73 @@ public class RescheduleGroupService {
         rescheduleGroupRepository.save(group);
     }
 
+    /**
+     * 그룹의 member_risk_ids 를 현재 tt_delay_risk 기준으로 재동기화하고 대표 risk_id 를 반환한다.
+     *
+     * 모델 재예측(/predict)으로 delay_risk 가 새 risk_id 로 재생성되면, 이전에 만들어진 그룹의
+     * member_risk_ids 는 더 이상 존재하지 않는 risk_id 를 가리키게 된다(stale). 이 상태로
+     * 에이전트(/run)를 호출하면 404(risk_id not found)가 난다.
+     *
+     * 그룹의 정체성은 (구역, step) 이고 risk_id 는 포인터일 뿐이므로, 생성 직전에 (구역, step) 의
+     * 현재 위험을 unit 별 대표(최고 delay_probability)로 다시 뽑아 member_risk_ids 를 갱신한다.
+     * 현재 위험이 없으면 기존 member_risk_ids 의 첫 항목을 그대로 사용한다(자가복구 불가).
+     *
+     * @return 갱신된 대표 risk_id. 현재 위험도 기존 위험도 없으면 null.
+     */
+    @Transactional
+    public String resyncLiveRisks(String groupId) {
+        RescheduleGroup group = rescheduleGroupRepository.findById(groupId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.RESCHEDULE_GROUP_NOT_FOUND));
+
+        List<DelayRisk> live = delayRiskRepository
+                .findByDistrict_DistrictIdAndStepId(group.getDistrictId(), group.getStepId());
+
+        // (구역, step) 의 현재 위험이 없으면 기존 member_risk_ids 로 폴백
+        if (live.isEmpty()) {
+            List<String> existing = group.getMemberRiskIds();
+            return (existing != null && !existing.isEmpty()) ? existing.get(0) : null;
+        }
+
+        // unit 별 대표(최고 delay_probability) → delay_probability 내림차순으로 정렬
+        List<DelayRisk> representatives = live.stream()
+                .filter(r -> r.getUnit() != null && r.getUnit().getUnitId() != null)
+                .collect(Collectors.groupingBy(
+                        r -> r.getUnit().getUnitId(),
+                        Collectors.collectingAndThen(
+                                Collectors.toList(),
+                                list -> list.stream()
+                                        .max(Comparator.comparing(
+                                                DelayRisk::getDelayProbability,
+                                                Comparator.nullsLast(Comparator.naturalOrder())))
+                                        .orElse(null))))
+                .values().stream()
+                .filter(Objects::nonNull)
+                .sorted(Comparator.comparing(
+                        DelayRisk::getDelayProbability,
+                        Comparator.nullsLast(Comparator.reverseOrder())))
+                .toList();
+
+        if (representatives.isEmpty()) {
+            List<String> existing = group.getMemberRiskIds();
+            return (existing != null && !existing.isEmpty()) ? existing.get(0) : null;
+        }
+
+        List<String> memberRiskIds = representatives.stream()
+                .map(DelayRisk::getRiskId)
+                .toList();
+        Double maxDelayProbability = representatives.stream()
+                .map(DelayRisk::getDelayProbability)
+                .filter(Objects::nonNull)
+                .max(Double::compareTo)
+                .orElse(group.getMaxRiskScore());
+
+        group.setMemberRiskIds(memberRiskIds);
+        group.setMaxRiskScore(maxDelayProbability);
+        rescheduleGroupRepository.save(group);
+
+        return memberRiskIds.get(0);
+    }
+
     @Transactional(readOnly = true)
     public RescheduleGroupDetailResponse getGroupDetail(String groupId) {
 
