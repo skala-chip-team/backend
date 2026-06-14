@@ -387,14 +387,15 @@ public class RescheduleGroupService {
                         r.getEstimatedDelayHr()))
                 .toList();
 
-        // 그룹 내 최고 위험 등급 (알림 배지용)
-        String riskLevel = memberRiskIds.stream()
+        // 그룹 내 대표 위험(최고 등급) — 알림 배지용 등급과 원인을 함께 뽑는다.
+        DelayRisk representative = memberRiskIds.stream()
                 .map(riskById::get)
                 .filter(Objects::nonNull)
-                .map(DelayRisk::getRiskLevel)
-                .filter(Objects::nonNull)
-                .max(Comparator.comparingInt(RescheduleGroupService::riskLevelRank))
+                .filter(r -> r.getRiskLevel() != null)
+                .max(Comparator.comparingInt(r -> riskLevelRank(r.getRiskLevel())))
                 .orElse(null);
+        String riskLevel = representative != null ? representative.getRiskLevel() : null;
+        String riskFactor = representative != null ? representative.getRiskFactor() : null;
 
         return new RescheduleGroupSummaryResponse(
                 group.getGroupId(),
@@ -403,6 +404,7 @@ public class RescheduleGroupService {
                 step != null ? step.getProcessStep() : null,
                 group.getMaxRiskScore(),
                 riskLevel,
+                riskFactor,
                 group.getGroupStatus(),
                 group.getActedAt(),
                 affectedUnits
