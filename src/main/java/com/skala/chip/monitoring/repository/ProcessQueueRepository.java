@@ -12,4 +12,7 @@ public interface ProcessQueueRepository extends JpaRepository<ProcessQueue, Stri
     List<ProcessQueue> findByDistrict_DistrictIdOrderByQueuePositionAsc(String districtId);
 
     List<ProcessQueue> findByUnit_UnitId(String unitId);
+
+    // (구역, step) 의 현재 대기열. 재조정 가능(actionable) 위험 판별에 사용한다.
+    List<ProcessQueue> findByDistrict_DistrictIdAndStepId(String districtId, String stepId);
 }
