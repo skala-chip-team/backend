@@ -72,7 +72,7 @@ public class RescheduleOrchestrationService {
         // ③ 재조정안 없는 pending 그룹마다 에이전트 호출
         List<RescheduleGroup> targets = rescheduleGroupRepository
                 .findByGroupStatus(GROUP_STATUS_PENDING).stream()
-                .filter(g -> g.getRescheduleDetail() == null)
+                .filter(this::needsGeneration)
                 .toList();
 
         List<GroupAgentResult> results = new ArrayList<>();
@@ -97,8 +97,11 @@ public class RescheduleOrchestrationService {
 
     /**
      * 자동 트리거(스케줄러)용: 모델 실행(predict) 없이
-     * 최신 delay_risk 를 그룹핑하고, 재조정안 없는 pending(트리거된 High/Critical) 그룹마다
-     * 에이전트를 호출해 reschedule_detail 을 채운다. 멱등(이미 detail 있는 그룹은 스킵).
+     * 최신 delay_risk 를 그룹핑하고, 재조정안이 필요한 pending(트리거된 High/Critical) 그룹마다
+     * 에이전트를 호출해 reschedule_detail 을 채운다.
+     * detail 이 없거나 fallback(success 옵션 없음)인 그룹을 대상으로 한다 — 큐가 얕아 fallback 이
+     * 났던 그룹도 이후 큐가 깊어지면 자동으로 success 로 재생성(승격)된다. success 가 하나라도
+     * 있으면 재호출하지 않는다(LLM 호출 절약).
      *
      * @return 이번 실행에서 에이전트 호출이 성공해 새로 생성된 재조정안 수
      */
@@ -109,7 +112,7 @@ public class RescheduleOrchestrationService {
 
         List<RescheduleGroup> targets = rescheduleGroupRepository
                 .findByGroupStatus(GROUP_STATUS_PENDING).stream()
-                .filter(g -> g.getRescheduleDetail() == null)
+                .filter(this::needsGeneration)
                 .toList();
 
         int generated = 0;
@@ -119,6 +122,32 @@ public class RescheduleOrchestrationService {
             }
         }
         return generated;
+    }
+
+    /**
+     * 에이전트(재)호출이 필요한 그룹인가?
+     * - detail 이 아직 없으면 생성 필요
+     * - detail 은 있으나 success 옵션이 하나도 없으면(전부 fallback) 재시도 대상
+     * - success 옵션이 하나라도 있으면 완료된 것으로 보고 재호출하지 않는다.
+     */
+    @SuppressWarnings("unchecked")
+    private boolean needsGeneration(RescheduleGroup group) {
+        Object detail = group.getRescheduleDetail();
+        if (!(detail instanceof java.util.Map<?, ?> d)) {
+            return true; // detail 없음 → 생성 필요
+        }
+        Object result = ((java.util.Map<String, Object>) d).get("reschedule_result");
+        if (!(result instanceof java.util.Map<?, ?> r)) {
+            return true;
+        }
+        Object options = ((java.util.Map<String, Object>) r).get("reschedule_options");
+        if (!(options instanceof List<?> opts) || opts.isEmpty()) {
+            return true;
+        }
+        boolean hasSuccess = opts.stream().anyMatch(o ->
+                o instanceof java.util.Map<?, ?> om
+                        && "success".equals(((java.util.Map<String, Object>) om).get("analysis_status")));
+        return !hasSuccess; // success 가 없으면(전부 fallback) 재시도
     }
 
     /**
