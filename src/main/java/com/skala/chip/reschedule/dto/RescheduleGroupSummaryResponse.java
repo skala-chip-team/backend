@@ -14,6 +14,7 @@ public record RescheduleGroupSummaryResponse(
         String processStep,
         Double maxRiskScore,
         String riskLevel,                 // 그룹 내 최고 위험 등급 (Low/Medium/High/Critical)
+        String riskFactor,                // 대표 위험 원인 (대표 risk 의 risk_factor). 없으면 null
         String groupStatus,
         LocalDateTime createdAt,          // reschedule_group.acted_at (그룹 생성 시각)
         List<AffectedUnit> affectedUnits  // 영향 unit + 지연 예측 시간
