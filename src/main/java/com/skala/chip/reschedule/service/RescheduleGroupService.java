@@ -231,12 +231,20 @@ public class RescheduleGroupService {
             return List.of();
         }
 
-        // 전략명 -> decision_summary (요약/추천)
+        // decision_summary 를 option_id 와 strategy 양쪽으로 색인한다.
+        // fallback 옵션은 strategy 가 null 이라 strategy join 이 깨지므로 option_id 를 우선 사용한다.
+        Map<String, Map<String, Object>> summaryByOptionId = new HashMap<>();
         Map<String, Map<String, Object>> summaryByStrategy = new HashMap<>();
         if (detail.get("decision_summaries") instanceof List<?> summaries) {
             for (Object s : summaries) {
-                if (s instanceof Map<?, ?> sm && sm.get("strategy") instanceof String strategy) {
-                    summaryByStrategy.put(strategy, (Map<String, Object>) sm);
+                if (s instanceof Map<?, ?> sm) {
+                    Map<String, Object> smMap = (Map<String, Object>) sm;
+                    if (smMap.get("option_id") instanceof String oid) {
+                        summaryByOptionId.put(oid, smMap);
+                    }
+                    if (smMap.get("strategy") instanceof String strategy) {
+                        summaryByStrategy.put(strategy, smMap);
+                    }
                 }
             }
         }
@@ -247,10 +255,20 @@ public class RescheduleGroupService {
                 continue;
             }
             Map<String, Object> opt = (Map<String, Object>) om;
-            String strategy = asString(opt.get("strategy"));
             Map<String, Object> sim = opt.get("dispatch_simulation") instanceof Map<?, ?> sm
                     ? (Map<String, Object>) sm : Map.of();
-            Map<String, Object> summary = summaryByStrategy.getOrDefault(strategy, Map.of());
+
+            // option_id 로 먼저 매칭(가장 견고), 없으면 strategy 로 폴백
+            String optionId = asString(opt.get("option_id"));
+            Map<String, Object> summary = optionId != null ? summaryByOptionId.get(optionId) : null;
+            if (summary == null) {
+                summary = summaryByStrategy.getOrDefault(asString(opt.get("strategy")), Map.of());
+            }
+            // fallback 옵션은 strategy 가 null 이므로 summary 의 strategy 로 카드 라벨을 채운다.
+            String strategy = asString(opt.get("strategy"));
+            if (strategy == null) {
+                strategy = asString(summary.get("strategy"));
+            }
 
             options.add(new RescheduleOption(
                     strategy,
