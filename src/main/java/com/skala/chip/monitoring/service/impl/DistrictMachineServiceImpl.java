@@ -60,6 +60,7 @@ public class DistrictMachineServiceImpl implements DistrictMachineService {
         var step = map.getStep();
 
         double utilizationRate = calculateUtilizationRate(machine.getMachineId(), todayStart);
+        double loadRate = calculateLoadRate(machine.getMachineId(), machine.getRatedCapacity(), todayStart);
 
         DistrictMachineResponseDTO.ActiveSchedule activeSchedule = scheduleRepository
                 .findByMachine_MachineIdAndStatusAndActiveTrue(machine.getMachineId(), "진행중")
@@ -75,6 +76,7 @@ public class DistrictMachineServiceImpl implements DistrictMachineService {
                 .stepId(step.getStepId())
                 .processStep(step.getProcessStep())
                 .utilizationRate(utilizationRate)
+                .loadRate(loadRate)
                 .activeSchedule(activeSchedule)
                 .build();
     }
@@ -99,6 +101,23 @@ public class DistrictMachineServiceImpl implements DistrictMachineService {
                 .estimatedEnd(estimatedEnd)
                 .priority(schedule.getPriority())
                 .build();
+    }
+
+    /**
+     * 부하율(%) = 금일 해당 장비에서 처리한 (완료 + 진행중) 유닛 수 / daily_capacity × 100.
+     *
+     * 가동률(시간 기반)과 다른 지표다. 분자는 금일 시작된 work_status 행 수(=처리 유닛 수),
+     * 분모는 장비의 일일 처리 용량(daily_capacity). 용량 정보가 없으면 0 으로 본다.
+     */
+    private double calculateLoadRate(String machineId, Integer dailyCapacity, LocalDateTime todayStart) {
+        if (dailyCapacity == null || dailyCapacity == 0) {
+            return 0.0;
+        }
+        long unitsToday = workStatusRepository
+                .findByMachine_MachineIdAndStartTimeGreaterThanEqual(machineId, todayStart)
+                .size();
+        double rate = (double) unitsToday / dailyCapacity * 100;
+        return Math.round(rate * 10.0) / 10.0;
     }
 
     private double calculateUtilizationRate(String machineId, LocalDateTime todayStart) {

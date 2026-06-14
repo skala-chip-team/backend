@@ -10,6 +10,8 @@ import com.skala.chip.monitoring.repository.ProcessQueueRepository;
 import com.skala.chip.monitoring.repository.WorkStatusRepository;
 import com.skala.chip.monitoring.service.DistrictSummaryService;
 import com.skala.chip.monitoring.service.SimClock;
+import com.skala.chip.order.domain.DailyOrder;
+import com.skala.chip.order.repository.DailyOrderRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,6 +33,7 @@ public class DistrictSummaryServiceImpl implements DistrictSummaryService {
     private final MachineRepository machineRepository;
     private final ProcessQueueRepository processQueueRepository;
     private final WorkStatusRepository workStatusRepository;
+    private final DailyOrderRepository dailyOrderRepository;
     private final SimClock simClock;
 
     @Override
@@ -81,6 +84,14 @@ public class DistrictSummaryServiceImpl implements DistrictSummaryService {
                 .mapToLong(WorkStatus::getOutputQty)
                 .sum();
 
+        // 4. 금일 생산 목표량 집계 (plan_date 가 오늘인 해당 구역 주문의 planned_output_qty 합)
+        long dailyTargetOutputQty = dailyOrderRepository
+                .findByDistrict_DistrictIdAndPlanDate(districtId, today).stream()
+                .map(DailyOrder::getPlannedOutputQty)
+                .filter(Objects::nonNull)
+                .mapToLong(Integer::longValue)
+                .sum();
+
         return DistrictSummaryResponseDTO.DistrictSummary.builder()
                 .districtId(districtId)
                 .districtName(district != null ? district.getDistrictName() : null)
@@ -91,6 +102,7 @@ public class DistrictSummaryServiceImpl implements DistrictSummaryService {
                 .totalWaitingUnitCount(totalWaitingUnitCount)
                 .avgWaitTimeMin(avgWaitTimeMin)
                 .dailyOutputQty(dailyOutputQty)
+                .dailyTargetOutputQty(dailyTargetOutputQty)
                 .build();
     }
 }
