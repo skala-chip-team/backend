@@ -238,9 +238,12 @@ public class RiskGroupingService {
                 .orElse(null);
 
         if (existing != null) {
+            // 같은 (구역, step) 의 위험이 지속/재감지될 때 동일 케이스를 재사용한다.
+            // 내용(member_risk_ids, max_risk_score)은 최신으로 갱신하되, acted_at(=케이스 최초
+            // 감지 시각)은 보존한다. acted_at 을 매번 갱신하면 오래된 케이스가 "새 위험"처럼 보여
+            // 프론트의 신규 위험 알림(toast)이 오작동한다.
             existing.setMemberRiskIds(memberRiskIds);
             existing.setMaxRiskScore(group.maxRiskScore());
-            existing.setActedAt(now);
             return existing;
         }
 
