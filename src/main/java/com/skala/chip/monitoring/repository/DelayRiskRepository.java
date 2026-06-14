@@ -15,6 +15,9 @@ public interface DelayRiskRepository extends JpaRepository<DelayRisk, String> {
 
     List<DelayRisk> findByDistrict_DistrictId(String districtId);
 
+    // (구역, step) 의 현재 위험 목록. 재조정안 생성 시 stale risk_id 자가복구에 사용한다.
+    List<DelayRisk> findByDistrict_DistrictIdAndStepId(String districtId, String stepId);
+
     // risk_id 목록으로 위험 조회 (재조정 그룹 상세용)
     List<DelayRisk> findByRiskIdIn(List<String> riskIds);
 

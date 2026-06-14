@@ -137,13 +137,15 @@ public class RescheduleOrchestrationService {
 
     /**
      * 그룹의 대표 risk_id 로 에이전트를 호출하고 결과를 저장한다.
-     * HTTP 호출은 트랜잭션 밖에서 수행하고, 저장만 짧은 트랜잭션으로 처리한다.
+     * HTTP 호출은 트랜잭션 밖에서 수행하고, 저장(resync/applyAgentResult)만 짧은 트랜잭션으로 처리한다.
      */
     private GroupAgentResult generateInternal(RescheduleGroup group) {
-        String riskId = representativeRiskId(group);
+        // 에이전트 호출 직전, 그룹의 (구역, step) 기준으로 member_risk_ids 를 현재 delay_risk 에 맞춰
+        // 재동기화한다. 모델 재예측으로 risk_id 가 갈려 stale 가 된 그룹의 404(risk_id not found)를 막는다.
+        String riskId = rescheduleGroupService.resyncLiveRisks(group.getGroupId());
         if (riskId == null) {
             return new GroupAgentResult(group.getGroupId(), null, false,
-                    "대표 risk_id 가 없습니다 (member_risk_ids 비어있음)");
+                    "대표 risk_id 가 없습니다 (현재 delay_risk·member_risk_ids 모두 비어있음)");
         }
         try {
             var runResult = aiAgentClient.run(riskId, group.getGroupId());
@@ -154,11 +156,5 @@ public class RescheduleOrchestrationService {
                     group.getGroupId(), riskId, e.getMessage());
             return new GroupAgentResult(group.getGroupId(), riskId, false, e.getMessage());
         }
-    }
-
-    /** member_risk_ids 의 첫 번째(=delay_probability 최고) 위험을 대표로 사용한다. */
-    private String representativeRiskId(RescheduleGroup group) {
-        List<String> ids = group.getMemberRiskIds();
-        return (ids != null && !ids.isEmpty()) ? ids.get(0) : null;
     }
 }
