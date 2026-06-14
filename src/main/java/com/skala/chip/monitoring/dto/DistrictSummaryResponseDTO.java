@@ -23,6 +23,7 @@ public class DistrictSummaryResponseDTO {
         private double avgWaitTimeMin;       // 평균 대기 시간 (분)
 
         // 생산 현황
-        private long dailyOutputQty;         // 금일 생산량
+        private long dailyOutputQty;         // 금일 생산량 (실제 STEP 완료 output_qty 합)
+        private long dailyTargetOutputQty;   // 금일 생산 목표량 (plan_date=오늘 주문의 planned_output_qty 합)
     }
 }
