@@ -157,6 +157,43 @@ public class RescheduleGroupService {
         return memberRiskIds.get(0);
     }
 
+    /**
+     * 재배치할 대상이 없는 phantom 그룹을 만료시킨다.
+     * (구역, step) 의 큐가 비어 actionable 위험이 없고 success 재조정안도 없는 pending 그룹은
+     * 사실상 "재조정할 게 없는" 케이스이므로 목록에서 치운다(expired). success 옵션이 하나라도
+     * 있으면 검토/승인 대상이므로 보존한다.
+     */
+    @Transactional
+    public void expireIfNoProposal(String groupId) {
+        rescheduleGroupRepository.findById(groupId).ifPresent(group -> {
+            if (!GROUP_STATUS_PENDING.equals(group.getGroupStatus())) {
+                return;
+            }
+            if (hasSuccessOption(group.getRescheduleDetail())) {
+                return; // success 안이 있으면 유지
+            }
+            group.setGroupStatus(GROUP_STATUS_EXPIRED);
+            rescheduleGroupRepository.save(group);
+            log.info("phantom 재조정 그룹 자동 만료(재배치 대상 없음): {}", groupId);
+        });
+    }
+
+    /** reschedule_detail 에 analysis_status=success 옵션이 하나라도 있는지. */
+    @SuppressWarnings("unchecked")
+    private boolean hasSuccessOption(Map<String, Object> detail) {
+        if (detail == null) {
+            return false;
+        }
+        if (!(detail.get("reschedule_result") instanceof Map<?, ?> r)) {
+            return false;
+        }
+        if (!(((Map<String, Object>) r).get("reschedule_options") instanceof List<?> opts)) {
+            return false;
+        }
+        return opts.stream().anyMatch(o -> o instanceof Map<?, ?> om
+                && "success".equals(((Map<String, Object>) om).get("analysis_status")));
+    }
+
     @Transactional(readOnly = true)
     public RescheduleGroupDetailResponse getGroupDetail(String groupId) {
 
