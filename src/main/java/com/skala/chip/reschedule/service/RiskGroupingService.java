@@ -3,6 +3,7 @@ package com.skala.chip.reschedule.service;
 import com.skala.chip.monitoring.domain.DelayRisk;
 import com.skala.chip.monitoring.domain.ProcessStepOrder;
 import com.skala.chip.monitoring.repository.DelayRiskRepository;
+import com.skala.chip.monitoring.repository.ProcessQueueRepository;
 import com.skala.chip.monitoring.repository.ProcessStepOrderRepository;
 import com.skala.chip.reschedule.domain.RescheduleGroup;
 import com.skala.chip.reschedule.dto.RepresentativeRisk;
@@ -19,6 +20,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -67,6 +69,7 @@ public class RiskGroupingService {
     private final DelayRiskRepository delayRiskRepository;
     private final ProcessStepOrderRepository processStepOrderRepository;
     private final RescheduleGroupRepository rescheduleGroupRepository;
+    private final ProcessQueueRepository processQueueRepository;
 
     @Transactional
     public RiskGroupingResponse groupRisks(LocalDateTime detectionTime) {
@@ -111,8 +114,20 @@ public class RiskGroupingService {
         // 트리거는 risk_level(High/Critical) 기준이라 수치 임계값은 사용하지 않는다.
         double threshold = 0.0;
 
-        List<DelayRisk> risks = delayRiskRepository
+        List<DelayRisk> allRisks = delayRiskRepository
                 .findByDetectionTimeGreaterThanEqualAndDetectionTimeLessThan(from, to);
+
+        // actionable 위험만 그룹핑 대상으로 둔다: unit 이 현재 대기열(process_queue)의 해당 step 에
+        // 있어야 한다. 큐에 없는 위험으로 그룹을 만들면 에이전트가 재배치할 게 없어 생성 불가
+        // (none/fallback/409)한 phantom 그룹이 되므로, 애초에 만들지 않는다.
+        Set<String> queued = processQueueRepository.findAll().stream()
+                .filter(q -> q.getUnit() != null && q.getUnit().getUnitId() != null && q.getStepId() != null)
+                .map(q -> q.getUnit().getUnitId() + "|" + q.getStepId())
+                .collect(Collectors.toSet());
+        List<DelayRisk> risks = allRisks.stream()
+                .filter(r -> r.getUnit() != null && r.getUnit().getUnitId() != null && r.getStepId() != null)
+                .filter(r -> queued.contains(r.getUnit().getUnitId() + "|" + r.getStepId()))
+                .toList();
 
         // step_id -> 공정 단계 정의(step_order 등)
         Map<String, ProcessStepOrder> stepMap = processStepOrderRepository.findAll().stream()
