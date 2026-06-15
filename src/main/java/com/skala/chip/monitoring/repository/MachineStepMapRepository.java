@@ -10,4 +10,7 @@ public interface MachineStepMapRepository extends JpaRepository<MachineStepMap, 
     List<MachineStepMap> findByMachine_District_DistrictId(String districtId);
 
     List<MachineStepMap> findByMachine_District_DistrictIdAndStep_StepId(String districtId, String stepId);
+
+    // 특정 장비의 공정 매핑 (장비 설정 조회/수정/삭제용). 보통 1건.
+    List<MachineStepMap> findByMachine_MachineId(String machineId);
 }
