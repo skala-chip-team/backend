@@ -2,6 +2,7 @@ package com.skala.chip.reschedule.controller;
 
 import com.skala.chip.common.ApiResponse;
 import com.skala.chip.reschedule.dto.OrchestrationResponse;
+import com.skala.chip.reschedule.dto.PredictionStatusResponse;
 import com.skala.chip.reschedule.dto.RiskGroupingResponse;
 import com.skala.chip.reschedule.service.RescheduleOrchestrationService;
 import com.skala.chip.reschedule.service.RiskGroupingService;
@@ -42,5 +43,15 @@ public class RiskGroupingController {
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime snapTime
     ) {
         return ApiResponse.success(orchestrationService.orchestrate(snapTime));
+    }
+
+    /**
+     * 지연 예측 시스템 상태(대시보드용).
+     * 마지막 예측 시도 결과(SUCCESS / SKIPPED_INSUFFICIENT(입력부족) / FAILED(추론실패) / NONE) +
+     * 사유 메시지 + delay_risk 최신 탐지 시각을 반환한다.
+     */
+    @GetMapping("/prediction-status")
+    public ApiResponse<PredictionStatusResponse> predictionStatus() {
+        return ApiResponse.success(orchestrationService.getPredictionStatus());
     }
 }
