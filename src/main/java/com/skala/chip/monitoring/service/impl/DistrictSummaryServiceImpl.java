@@ -5,6 +5,7 @@ import com.skala.chip.monitoring.domain.ProcessQueue;
 import com.skala.chip.monitoring.domain.ProcessStepOrder;
 import com.skala.chip.monitoring.domain.WorkStatus;
 import com.skala.chip.monitoring.dto.DistrictSummaryResponseDTO;
+import com.skala.chip.monitoring.dto.ProductionStatusResponseDTO;
 import com.skala.chip.monitoring.repository.DistrictRepository;
 import com.skala.chip.monitoring.repository.MachineRepository;
 import com.skala.chip.monitoring.repository.ProcessQueueRepository;
@@ -116,5 +117,24 @@ public class DistrictSummaryServiceImpl implements DistrictSummaryService {
                 .dailyOutputQty(dailyOutputQty)
                 .dailyTargetOutputQty(dailyTargetOutputQty)
                 .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ProductionStatusResponseDTO getProductionStatus() {
+        LocalDate today = simClock.now().toLocalDate();
+        String finalStepId = processStepOrderRepository.findAll().stream()
+                .filter(s -> s.getStepOrder() != null)
+                .max(Comparator.comparingInt(ProcessStepOrder::getStepOrder))
+                .map(ProcessStepOrder::getStepId)
+                .orElse(null);
+        if (finalStepId == null) {
+            return new ProductionStatusResponseDTO(0L, null, today);
+        }
+        LocalDateTime dayStart = today.atStartOfDay();
+        LocalDateTime dayEnd = today.plusDays(1).atStartOfDay();
+        long completed = workStatusRepository.sumFinalStepOutputAll(dayStart, dayEnd, finalStepId);
+        LocalDateTime latest = workStatusRepository.latestFinalStepAt(dayStart, dayEnd, finalStepId);
+        return new ProductionStatusResponseDTO(completed, latest, today);
     }
 }

@@ -210,6 +210,12 @@ public class MonitoringController {
         );
     }
 
+    @Operation(summary = "생산 완료 현황 조회 (생산 완료 알림용)")
+    @GetMapping("/production-status")
+    public ApiResponse<com.skala.chip.monitoring.dto.ProductionStatusResponseDTO> getProductionStatus() {
+        return ApiResponse.success(districtSummaryService.getProductionStatus());
+    }
+
     @Operation(summary = "구역 스케줄 간트 차트 조회")
     @GetMapping("/districts/{districtId}/schedules/gantt")
     public ApiResponse<ScheduleGanttResponseDTO.DistrictGantt> getDistrictScheduleGantt(
