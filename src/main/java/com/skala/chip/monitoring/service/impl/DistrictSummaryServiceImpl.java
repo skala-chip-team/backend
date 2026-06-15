@@ -2,11 +2,13 @@ package com.skala.chip.monitoring.service.impl;
 
 import com.skala.chip.monitoring.domain.DistrictMaster;
 import com.skala.chip.monitoring.domain.ProcessQueue;
+import com.skala.chip.monitoring.domain.ProcessStepOrder;
 import com.skala.chip.monitoring.domain.WorkStatus;
 import com.skala.chip.monitoring.dto.DistrictSummaryResponseDTO;
 import com.skala.chip.monitoring.repository.DistrictRepository;
 import com.skala.chip.monitoring.repository.MachineRepository;
 import com.skala.chip.monitoring.repository.ProcessQueueRepository;
+import com.skala.chip.monitoring.repository.ProcessStepOrderRepository;
 import com.skala.chip.monitoring.repository.WorkStatusRepository;
 import com.skala.chip.monitoring.service.DistrictSummaryService;
 import com.skala.chip.monitoring.service.SimClock;
@@ -17,6 +19,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 
@@ -34,6 +38,7 @@ public class DistrictSummaryServiceImpl implements DistrictSummaryService {
     private final ProcessQueueRepository processQueueRepository;
     private final WorkStatusRepository workStatusRepository;
     private final DailyOrderRepository dailyOrderRepository;
+    private final ProcessStepOrderRepository processStepOrderRepository;
     private final SimClock simClock;
 
     @Override
@@ -73,16 +78,23 @@ public class DistrictSummaryServiceImpl implements DistrictSummaryService {
                 .orElse(0.0);
         avgWaitTimeMin = Math.round(avgWaitTimeMin * 10) / 10.0;
 
-        // 3. 금일 생산량 집계 (오늘 시작된 작업의 output_qty 합계)
+        // 3. 금일 생산량(완성품) 집계.
         // 시뮬레이션 데이터는 sim 달력 기준이라 실제 LocalDate.now() 가 아닌 sim 기준 "오늘" 을 쓴다.
+        // 한 unit 은 여러 공정(step)을 거치며 step 마다 work_status 가 생기므로, 전 공정의 output_qty 를
+        // 합치면 완성품 수가 (공정 수)배로 부풀려진다(예: unit 당 ~3배). 따라서 "최종 공정(step_order
+        // 최대)" 의 output 만 합산해 실제 완성 수량을 구한다.
         LocalDate today = simClock.now().toLocalDate();
-        long dailyOutputQty = workStatusRepository
-                .findByMachine_District_DistrictId(districtId).stream()
-                .filter(ws -> ws.getStartTime() != null
-                        && ws.getStartTime().toLocalDate().isEqual(today)
-                        && ws.getOutputQty() != null)
-                .mapToLong(WorkStatus::getOutputQty)
-                .sum();
+        String finalStepId = processStepOrderRepository.findAll().stream()
+                .filter(s -> s.getStepOrder() != null)
+                .max(Comparator.comparingInt(ProcessStepOrder::getStepOrder))
+                .map(ProcessStepOrder::getStepId)
+                .orElse(null);
+        long dailyOutputQty = finalStepId == null ? 0L
+                : workStatusRepository.sumFinalStepOutput(
+                        districtId,
+                        today.atStartOfDay(),
+                        today.plusDays(1).atStartOfDay(),
+                        finalStepId);
 
         // 4. 금일 생산 목표량 집계 (plan_date 가 오늘인 해당 구역 주문의 planned_output_qty 합)
         long dailyTargetOutputQty = dailyOrderRepository
