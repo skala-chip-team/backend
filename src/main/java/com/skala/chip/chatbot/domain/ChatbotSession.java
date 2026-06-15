@@ -29,6 +29,11 @@ public class ChatbotSession {
     @Column(name = "user_id", nullable = false)
     private String userId;
 
+    // 세션의 컨텍스트 그룹 — 세션 내에서 고정. 에이전트가 세션 생성 시 채운다.
+    // (기존 행이 있어 DB 는 nullable 로 추가됨; 에이전트가 채우기 시작하면 not null 로 강화 가능)
+    @Column(name = "group_id")
+    private String groupId;
+
     @Column(name = "started_at")
     private LocalDateTime startedAt;
 
