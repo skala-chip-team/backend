@@ -49,6 +49,7 @@ public enum ErrorCode {
     CHATBOT_GROUP_REQUIRED(400, "새 대화에는 group_id가 필요합니다."),
     CHATBOT_SESSION_NOT_FOUND(404, "챗봇 세션을 찾을 수 없습니다."),
     CHATBOT_SESSION_FORBIDDEN(403, "다른 사용자의 챗봇 세션입니다."),
+    CHATBOT_GROUP_FORBIDDEN(403, "담당 구역이 아닌 재조정 그룹에는 접근할 수 없습니다."),
     CHATBOT_GROUP_MISMATCH(409, "세션에 연결된 그룹과 다른 group_id 입니다."),
     CHATBOT_AGENT_ERROR(502, "챗봇 에이전트(추론) 호출에 실패했습니다."),
 

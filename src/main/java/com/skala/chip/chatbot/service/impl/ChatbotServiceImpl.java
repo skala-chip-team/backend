@@ -13,7 +13,10 @@ import com.skala.chip.chatbot.repository.ChatbotSessionRepository;
 import com.skala.chip.chatbot.service.ChatbotService;
 import com.skala.chip.exception.code.ErrorCode;
 import com.skala.chip.exception.custom.BusinessException;
+import com.skala.chip.reschedule.domain.RescheduleGroup;
+import com.skala.chip.reschedule.repository.RescheduleGroupRepository;
 import com.skala.chip.user.domain.User;
+import com.skala.chip.user.repository.UserDistrictMapRepository;
 import com.skala.chip.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -44,10 +47,15 @@ public class ChatbotServiceImpl implements ChatbotService {
     private final ChatbotSessionRepository chatbotSessionRepository;
     private final ChatbotMessageRepository chatbotMessageRepository;
     private final UserRepository userRepository;
+    private final UserDistrictMapRepository userDistrictMapRepository;
+    private final RescheduleGroupRepository rescheduleGroupRepository;
+
+    private static final String ROLE_ADMIN = "ADMIN";
 
     @Override
     public ChatbotResponseDTO.MessageResult sendMessage(String email, ChatbotRequestDTO.SendMessage request) {
-        String userId = resolveUserId(email);
+        User user = resolveUser(email);
+        String userId = user.getUserId();
 
         ChatbotSession newSession = null;  // 신규 세션일 때만 채워짐(트랜잭션에서 함께 저장)
         String sessionId;
@@ -83,6 +91,10 @@ public class ChatbotServiceImpl implements ChatbotService {
                     .build();
             history = List.of();
         }
+
+        // 구역 기반 접근 권한: 운영자는 담당 구역의 재조정 그룹에만 챗봇으로 접근할 수 있다.
+        // (세션 소유권과 별개 — 권한 없는 group_id 로 새 세션을 여는 것을 막는다. ADMIN 은 전체 허용)
+        assertGroupAccess(user, groupId);
 
         // AI 추론 (트랜잭션 밖 — LLM 호출이 길어 DB 트랜잭션을 잡지 않는다)
         InferResponse inferResponse;
@@ -126,9 +138,35 @@ public class ChatbotServiceImpl implements ChatbotService {
 
     /** JWT 주체(email) → user_id. JWT 에는 email(sub)만 있으므로 DB 에서 조회한다. */
     private String resolveUserId(String email) {
+        return resolveUser(email).getUserId();
+    }
+
+    /** JWT 주체(email) → User (역할·구역 권한 판단에 필요). */
+    private User resolveUser(String email) {
         return userRepository.findByEmail(email)
-                .map(User::getUserId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+    }
+
+    /**
+     * 구역 기반 그룹 접근 권한 검증. 그룹의 구역(district)이 사용자 담당 구역이 아니면 403.
+     * - ADMIN 역할은 전체 구역 접근 허용
+     * - 그룹이 존재하지 않으면(잘못된 group_id) 권한 검증을 생략한다(존재/유효성은 별도 책임).
+     */
+    private void assertGroupAccess(User user, String groupId) {
+        if (user.getRole() != null && ROLE_ADMIN.equalsIgnoreCase(user.getRole().getRoleName())) {
+            return; // 관리자: 전체 구역
+        }
+        String districtId = rescheduleGroupRepository.findById(groupId)
+                .map(RescheduleGroup::getDistrictId)
+                .orElse(null);
+        if (districtId == null) {
+            return; // 그룹 미존재 → 구역 판별 불가, 권한 검증 생략
+        }
+        boolean allowed = userDistrictMapRepository.findByUserId(user.getUserId()).stream()
+                .anyMatch(m -> districtId.equals(m.getDistrictId()));
+        if (!allowed) {
+            throw new BusinessException(ErrorCode.CHATBOT_GROUP_FORBIDDEN);
+        }
     }
 
     /**
