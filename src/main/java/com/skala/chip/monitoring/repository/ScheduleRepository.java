@@ -16,4 +16,7 @@ public interface ScheduleRepository extends JpaRepository<ScheduleMaster, String
     List<ScheduleMaster> findByMachine_District_DistrictId(String districtId);
 
     List<ScheduleMaster> findByMachine_MachineIdAndStatusAndActiveTrue(String machineId, String status);
+
+    // 장비 삭제 가드: 진행 중(active) 스케줄이 있으면 삭제 거절.
+    boolean existsByMachine_MachineIdAndActiveTrue(String machineId);
 }

@@ -32,6 +32,11 @@ public enum ErrorCode {
     ROLE_NOT_FOUND(404, "존재하지 않는 역할입니다."),
     DISTRICT_NOT_FOUND(404, "존재하지 않는 구역입니다."),
 
+    // --- Machine (장비 설정) ---
+    MACHINE_NOT_FOUND(404, "존재하지 않는 장비입니다."),
+    PROCESS_STEP_NOT_FOUND(404, "존재하지 않는 공정 STEP입니다."),
+    MACHINE_HAS_ACTIVE_SCHEDULE(409, "진행 중인 스케줄이 있어 장비를 삭제할 수 없습니다."),
+
     // --- Reschedule ---
     RESCHEDULE_GROUP_NOT_FOUND(404, "존재하지 않는 재조정 그룹입니다."),
     RESCHEDULE_DETAIL_NOT_READY(400, "재조정안이 아직 생성되지 않았습니다."),
