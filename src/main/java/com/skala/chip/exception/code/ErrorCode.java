@@ -44,13 +44,13 @@ public enum ErrorCode {
     ORDER_NOT_FOUND(404, "존재하지 않는 주문입니다."),
 
     // --- Chatbot ---
-    // 백엔드는 프론트엔드와 챗봇 에이전트(ai_agent /chat) 사이를 중계한다.
-    // 에이전트가 내려준 상태코드(403/404/409)는 의미가 보존되도록 매핑하고,
-    // 연결 실패/5xx 는 502(CHATBOT_AGENT_ERROR)로 묶는다.
-    CHATBOT_REF_TIME_REQUIRED(409, "ref_time을 지정하거나 시뮬레이션을 먼저 시작해야 합니다."),
+    // 세션 lifecycle·소유권·메시지 저장은 백엔드가 소유한다. AI 서버(/infer)는 무상태 추론만.
+    // 세션은 하나의 재조정 그룹에 고정되며, 그룹 검증 규칙을 백엔드에서 강제한다.
+    CHATBOT_GROUP_REQUIRED(400, "새 대화에는 group_id가 필요합니다."),
     CHATBOT_SESSION_NOT_FOUND(404, "챗봇 세션을 찾을 수 없습니다."),
     CHATBOT_SESSION_FORBIDDEN(403, "다른 사용자의 챗봇 세션입니다."),
-    CHATBOT_AGENT_ERROR(502, "챗봇 에이전트 호출에 실패했습니다."),
+    CHATBOT_GROUP_MISMATCH(409, "세션에 연결된 그룹과 다른 group_id 입니다."),
+    CHATBOT_AGENT_ERROR(502, "챗봇 에이전트(추론) 호출에 실패했습니다."),
 
     // --- Common ---
     INVALID_INPUT(400, "잘못된 요청입니다."),

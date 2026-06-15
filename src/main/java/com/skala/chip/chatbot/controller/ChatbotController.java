@@ -22,9 +22,9 @@ import java.util.List;
 /**
  * 챗봇 API 컨트롤러.
  *
- * 프론트엔드 ↔ 챗봇 에이전트(ai_agent /chat) 사이를 중계한다.
+ * 세션 lifecycle·소유권·메시지 저장은 백엔드가 소유하고, AI 서버(/infer)는 무상태 추론만 한다.
  * SecurityConfig 에서 permitAll 목록에 없으므로 JWT 인증이 필요하며,
- * 인증 주체(email)에서 user_id 를 확정해 에이전트로 주입한다. (본문에는 user_id 를 받지 않는다)
+ * 인증 주체(email)에서 user_id 를 확정한다. (본문에는 user_id 를 받지 않는다)
  */
 @Tag(name = "Chatbot", description = "재조정 챗봇 API")
 @SecurityRequirement(name = "BearerAuth")
@@ -38,13 +38,14 @@ public class ChatbotController {
     /**
      * 챗봇 메시지 전송.
      *
-     * 프론트의 질문을 에이전트로 중계하고 답변(answer)·세션 ID·호출 도구 목록을 반환한다.
+     * 세션 확인/생성 → 이력 조회 → AI 추론(/infer) → user+assistant 한 트랜잭션 저장.
+     * 답변(answer)·세션 ID·도구호출·출처(sources)를 반환한다.
      *
      * @param email   JWT 인증 주체(이메일). SecurityContext 의 principal 에서 주입된다.
-     * @param request groupId, sessionId?, message, refTime?
+     * @param request groupId?, sessionId?, message (group/session 조합 규칙은 서비스에서 검증)
      */
     @Operation(summary = "챗봇 메시지 전송",
-            description = "프론트엔드의 질문을 챗봇 에이전트로 중계하고 답변을 반환한다. "
+            description = "세션을 백엔드가 관리하고 AI(/infer)로 추론한다. "
                     + "user_id 는 JWT 에서 추출하므로 요청 본문에 포함하지 않는다.")
     @PostMapping("/messages")
     public ApiResponse<ChatbotResponseDTO.MessageResult> sendMessage(
