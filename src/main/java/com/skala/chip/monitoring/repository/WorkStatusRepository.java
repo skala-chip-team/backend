@@ -24,6 +24,22 @@ public interface WorkStatusRepository extends JpaRepository<WorkStatus, String> 
                             @Param("dayEnd") LocalDateTime dayEnd,
                             @Param("finalStepId") String finalStepId);
 
+    /** 금일 전체 구역 완성품(최종 공정 output) 합. 생산 완료 알림용. */
+    @Query("select coalesce(sum(w.outputQty), 0) from WorkStatus w "
+            + "where w.startTime >= :dayStart and w.startTime < :dayEnd "
+            + "and w.schedule.stepId = :finalStepId")
+    long sumFinalStepOutputAll(@Param("dayStart") LocalDateTime dayStart,
+                               @Param("dayEnd") LocalDateTime dayEnd,
+                               @Param("finalStepId") String finalStepId);
+
+    /** 금일 최종 공정 작업의 가장 최근 시작 시각(sim). 생산 완료 알림용. */
+    @Query("select max(w.startTime) from WorkStatus w "
+            + "where w.startTime >= :dayStart and w.startTime < :dayEnd "
+            + "and w.schedule.stepId = :finalStepId")
+    LocalDateTime latestFinalStepAt(@Param("dayStart") LocalDateTime dayStart,
+                                    @Param("dayEnd") LocalDateTime dayEnd,
+                                    @Param("finalStepId") String finalStepId);
+
     List<WorkStatus> findByMachine_MachineId(String machineId);
 
     // 특정 장비의 기준 시각 이후 작업(=금일 처리 유닛) 조회. 부하율 계산용.
