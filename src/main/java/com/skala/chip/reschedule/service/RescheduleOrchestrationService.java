@@ -14,9 +14,12 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import com.skala.chip.reschedule.dto.PredictionStatusResponse;
+
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 재조정 전체 흐름 오케스트레이터.
@@ -41,6 +44,7 @@ public class RescheduleOrchestrationService {
     private final RescheduleGroupService rescheduleGroupService;
     private final RescheduleGroupRepository rescheduleGroupRepository;
     private final DelayRiskRepository delayRiskRepository;
+    private final PredictionStatusHolder predictionStatusHolder;
 
     /**
      * 전체 흐름 실행. snapTime 미지정 시 최신 delay_risk 시각을 사용한다.
@@ -54,14 +58,24 @@ public class RescheduleOrchestrationService {
                         .orElse(null);
 
         // ① 모델 실행 (실패는 비치명적 — 기존 delay_risk 로 그룹핑 진행)
+        // 예측 결과를 대시보드용 상태로 기록한다: 성공(inserted>0) / 입력부족(inserted==0) / 실패(예외).
         boolean predictCalled = false;
         String predictError = null;
         if (effectiveSnapTime != null) {
             try {
-                aiAgentClient.predict(effectiveSnapTime);
+                Map<String, Object> predictResult = aiAgentClient.predict(effectiveSnapTime);
+                int inserted = predictResult != null && predictResult.get("inserted") instanceof Number n
+                        ? n.intValue() : 0;
+                if (inserted > 0) {
+                    predictionStatusHolder.recordSuccess(inserted);
+                } else {
+                    // 입력 데이터 부족 → 예측 미수행(신규 위험 0건). 다음 주기 재시도.
+                    predictionStatusHolder.recordInsufficient();
+                }
                 predictCalled = true;
             } catch (RuntimeException e) {
                 predictError = e.getMessage();
+                predictionStatusHolder.recordFailure(e.getMessage());
                 log.warn("모델 실행(/predict) 실패, 기존 delay_risk 로 진행: {}", e.getMessage());
             }
         }
@@ -92,6 +106,22 @@ public class RescheduleOrchestrationService {
                 targets.size(),
                 generated,
                 results
+        );
+    }
+
+    /**
+     * 지연 예측 시스템 상태(대시보드용). 마지막 예측 시도 결과 + delay_risk 최신 탐지 시각.
+     */
+    public PredictionStatusResponse getPredictionStatus() {
+        LocalDateTime latestRisk = delayRiskRepository.findTopByOrderByDetectionTimeDesc()
+                .map(DelayRisk::getDetectionTime)
+                .orElse(null);
+        return new PredictionStatusResponse(
+                predictionStatusHolder.getStatus().name(),
+                predictionStatusHolder.getMessage(),
+                predictionStatusHolder.getInsertedCount(),
+                predictionStatusHolder.getAttemptedAt(),
+                latestRisk
         );
     }
 
