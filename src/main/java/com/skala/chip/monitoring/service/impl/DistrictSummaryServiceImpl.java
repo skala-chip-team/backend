@@ -104,7 +104,7 @@ public class DistrictSummaryServiceImpl implements DistrictSummaryService {
 
         // 달성률: 목표량이 있을 때만 산출. 목표 정보가 없으면(0) null = "달성률 산출 불가"(절대값만 표시).
         Double achievementRate = dailyTargetOutputQty > 0
-                ? Math.round(((double) dailyOutputQty / dailyTargetOutputQty) * 1000) / 10.0
+                ? Math.min(Math.round(((double) dailyOutputQty / dailyTargetOutputQty) * 1000) / 10.0, 100.0)
                 : null;
 
         return DistrictSummaryResponseDTO.DistrictSummary.builder()
