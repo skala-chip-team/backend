@@ -223,6 +223,14 @@ public class RescheduleGroupService {
 
         Map<String, Object> detail = group.getRescheduleDetail();
 
+        // 현재 운영 스케줄(before_schedule)이 없으면 재조정 전·후 비교 자체가 성립하지 않는다.
+        // 이 경우 전략별 결과를 fallback(INPUT_INSUFFICIENT)으로 강제하고 비교 지표를 제거한다.
+        Object beforeSchedule = extractBeforeSchedule(detail);
+        List<RescheduleOption> options = buildOptions(detail);
+        if (beforeSchedule == null) {
+            options = forceNoBaselineFallback(options);
+        }
+
         return new RescheduleGroupDetailResponse(
                 group.getGroupId(),
                 group.getDistrictId(),
@@ -234,8 +242,8 @@ public class RescheduleGroupService {
                 group.getActedAt(),
                 delayRisks,
                 extractRiskAnalysis(detail),
-                extractBeforeSchedule(detail),
-                buildOptions(detail)
+                beforeSchedule,
+                options
         );
     }
 
@@ -245,6 +253,41 @@ public class RescheduleGroupService {
             return ((Map<?, ?>) sp).get("before_schedule");
         }
         return null;
+    }
+
+    /** 현재 운영 스케줄(before_schedule)이 없을 때 기록할 fallback 사유. */
+    private static final String NO_BASELINE_FALLBACK_REASON = "INPUT_INSUFFICIENT";
+
+    /**
+     * 현재 운영 스케줄(before_schedule)이 없는 경우의 처리.
+     * 비교 기준이 없으므로 각 전략을 fallback(INPUT_INSUFFICIENT)으로 강제하고,
+     * 재조정 전·후 비교 정보(시뮬 지표/after_schedule/큐 변경/비교지표/납기영향)를 제거한다.
+     * 추천 근거 텍스트(summary/reasoning/리포트)는 참고용으로 보존한다.
+     */
+    private List<RescheduleOption> forceNoBaselineFallback(List<RescheduleOption> options) {
+        return options.stream()
+                .map(o -> new RescheduleOption(
+                        o.strategy(),
+                        "fallback",
+                        NO_BASELINE_FALLBACK_REASON,
+                        false,              // 비교 불가 → 추천 해제
+                        o.summary(),
+                        o.selected(),
+                        null,               // estimatedDelayHrAfter
+                        null,               // avgWaitTimeMinAfter
+                        null,               // avgUtilizationRateAfter
+                        null,               // maxWaitTimeMinAfter
+                        null,               // deadlineViolationCount
+                        null,               // afterSchedule (전·후 비교 미제공)
+                        null,               // queueReorder
+                        null,               // metricsComparison
+                        o.recommendationReasoning(),
+                        o.keyImprovements(),
+                        o.keyConcerns(),
+                        o.detailedReport(),
+                        null                // deadlineImpact (비교 정보)
+                ))
+                .toList();
     }
 
     /** reschedule_detail 에서 에이전트 원인분석(risk_analysis) 서브객체를 꺼낸다. 없으면 null. */
