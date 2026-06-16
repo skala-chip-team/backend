@@ -164,8 +164,7 @@ public class MonitoringOverviewService {
                 .map(ProcessStepOrder::getStepId)
                 .orElse(null);
         long dailyOutput = finalStepId == null ? 0L
-                : workStatusRepository.sumFinalStepOutput(
-                        districtId, todayStart, todayStart.plusDays(1), finalStepId);
+                : workStatusRepository.sumFinalStepOutput(districtId, today, finalStepId);
 
         Summary summary = Summary.builder()
                 .totalMachineCount(total)

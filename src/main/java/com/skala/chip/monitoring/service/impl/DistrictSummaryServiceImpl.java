@@ -92,11 +92,7 @@ public class DistrictSummaryServiceImpl implements DistrictSummaryService {
                 .map(ProcessStepOrder::getStepId)
                 .orElse(null);
         long dailyOutputQty = finalStepId == null ? 0L
-                : workStatusRepository.sumFinalStepOutput(
-                        districtId,
-                        today.atStartOfDay(),
-                        today.plusDays(1).atStartOfDay(),
-                        finalStepId);
+                : workStatusRepository.sumFinalStepOutput(districtId, today, finalStepId);
 
         // 4. 금일 생산 목표량 집계 (plan_date 가 오늘인 해당 구역 주문의 planned_output_qty 합)
         long dailyTargetOutputQty = dailyOrderRepository
@@ -142,7 +138,7 @@ public class DistrictSummaryServiceImpl implements DistrictSummaryService {
         }
         LocalDateTime dayStart = today.atStartOfDay();
         LocalDateTime dayEnd = today.plusDays(1).atStartOfDay();
-        long completed = workStatusRepository.sumFinalStepOutputAll(dayStart, dayEnd, finalStepId);
+        long completed = workStatusRepository.sumFinalStepOutputAll(today, finalStepId);
         LocalDateTime latest = workStatusRepository.latestFinalStepAt(dayStart, dayEnd, finalStepId);
         return new ProductionStatusResponseDTO(completed, latest, today, simNow);
     }
