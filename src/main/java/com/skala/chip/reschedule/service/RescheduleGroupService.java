@@ -64,6 +64,7 @@ public class RescheduleGroupService {
     private final RescheduleSelectionRepository rescheduleSelectionRepository;
     private final ScheduleRepository scheduleRepository;
     private final MachineRepository machineRepository;
+    private final com.skala.chip.monitoring.service.SimClock simClock;
 
     /**
      * 에이전트(/run) 결과를 그룹의 reschedule_detail 에 저장한다.
@@ -240,6 +241,7 @@ public class RescheduleGroupService {
                 group.getMaxRiskScore(),
                 group.getGroupStatus(),
                 group.getActedAt(),
+                simClock.now(),
                 delayRisks,
                 extractRiskAnalysis(detail),
                 beforeSchedule,
@@ -271,6 +273,8 @@ public class RescheduleGroupService {
                         "fallback",
                         NO_BASELINE_FALLBACK_REASON,
                         false,              // 비교 불가 → 추천 해제
+                        "not_recommend",    // fallback → not_recommend 분류
+                        true,               // 운영자 수동 검토 대상
                         o.summary(),
                         o.selected(),
                         null,               // estimatedDelayHrAfter
@@ -350,11 +354,22 @@ public class RescheduleGroupService {
                 strategy = asString(summary.get("strategy"));
             }
 
+            String analysisStatus = asString(opt.get("analysis_status"));
+            String rawRecommendation = asString(summary.get("recommendation"));
+            boolean recommended = "recommend".equalsIgnoreCase(rawRecommendation);
+            // fallback 이면 recommendation 이 비어도 not_recommend 로 분류하고 수동 검토 대상으로 표시
+            boolean isFallback = "fallback".equalsIgnoreCase(analysisStatus);
+            String recommendation = isFallback ? "not_recommend"
+                    : (rawRecommendation != null ? rawRecommendation : (recommended ? "recommend" : "not_recommend"));
+            boolean manualReviewRequired = isFallback || !recommended;
+
             options.add(new RescheduleOption(
                     strategy,
-                    asString(opt.get("analysis_status")),
+                    analysisStatus,
                     asString(opt.get("fallback_reason")),
-                    "recommend".equalsIgnoreCase(asString(summary.get("recommendation"))),
+                    recommended,
+                    recommendation,
+                    manualReviewRequired,
                     asString(summary.get("summary")),
                     opt.get("selected_yn") instanceof Boolean b && b,
                     asDouble(sim.get("estimated_delay_hr_after")),

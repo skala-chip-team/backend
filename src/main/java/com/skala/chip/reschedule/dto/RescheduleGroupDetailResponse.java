@@ -21,6 +21,8 @@ public record RescheduleGroupDetailResponse(
         Double maxDelayProbability,   // reschedule_group.max_risk_score (delay_probability 최대값)
         String groupStatus,           // pending / approved / expired
         LocalDateTime actedAt,
+        // 시뮬레이션 스냅샷 시각(sim 기준). 프론트가 actedAt 과의 시점 차이/재시뮬 권장 판단에 사용.
+        LocalDateTime simulatedAt,
 
         // 관련된 delay_risks
         List<RelatedRisk> delayRisks,

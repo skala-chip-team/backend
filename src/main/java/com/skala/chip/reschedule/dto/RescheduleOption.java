@@ -14,6 +14,8 @@ public record RescheduleOption(
         String analysisStatus,            // success / fallback
         String fallbackReason,            // fallback 사유 (success 면 null)
         boolean recommended,              // decision_summaries.recommendation == "recommend"
+        String recommendation,            // recommend / not_recommend (fallback 시 not_recommend 로 강제)
+        boolean manualReviewRequired,     // 운영자 수동 검토 대상 여부 (fallback/not_recommend 면 true)
         String summary,                   // 추천 사유 요약 (decision_summaries.summary)
         boolean selected,                 // selected_yn (선택·확정된 전략 여부)
 
