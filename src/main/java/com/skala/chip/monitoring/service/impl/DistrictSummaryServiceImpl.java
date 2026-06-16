@@ -84,7 +84,8 @@ public class DistrictSummaryServiceImpl implements DistrictSummaryService {
         // 한 unit 은 여러 공정(step)을 거치며 step 마다 work_status 가 생기므로, 전 공정의 output_qty 를
         // 합치면 완성품 수가 (공정 수)배로 부풀려진다(예: unit 당 ~3배). 따라서 "최종 공정(step_order
         // 최대)" 의 output 만 합산해 실제 완성 수량을 구한다.
-        LocalDate today = simClock.now().toLocalDate();
+        LocalDateTime simNow = simClock.now();
+        LocalDate today = simNow.toLocalDate();
         String finalStepId = processStepOrderRepository.findAll().stream()
                 .filter(s -> s.getStepOrder() != null)
                 .max(Comparator.comparingInt(ProcessStepOrder::getStepOrder))
@@ -105,9 +106,15 @@ public class DistrictSummaryServiceImpl implements DistrictSummaryService {
                 .mapToLong(Integer::longValue)
                 .sum();
 
+        // 달성률: 목표량이 있을 때만 산출. 목표 정보가 없으면(0) null = "달성률 산출 불가"(절대값만 표시).
+        Double achievementRate = dailyTargetOutputQty > 0
+                ? Math.round(((double) dailyOutputQty / dailyTargetOutputQty) * 1000) / 10.0
+                : null;
+
         return DistrictSummaryResponseDTO.DistrictSummary.builder()
                 .districtId(districtId)
                 .districtName(district != null ? district.getDistrictName() : null)
+                .simulatedAt(simNow)
                 .totalMachineCount(totalMachine)
                 .availableMachineCount(available)
                 .downMachineCount(down)
@@ -116,25 +123,27 @@ public class DistrictSummaryServiceImpl implements DistrictSummaryService {
                 .avgWaitTimeMin(avgWaitTimeMin)
                 .dailyOutputQty(dailyOutputQty)
                 .dailyTargetOutputQty(dailyTargetOutputQty)
+                .achievementRate(achievementRate)
                 .build();
     }
 
     @Override
     @Transactional(readOnly = true)
     public ProductionStatusResponseDTO getProductionStatus() {
-        LocalDate today = simClock.now().toLocalDate();
+        LocalDateTime simNow = simClock.now();
+        LocalDate today = simNow.toLocalDate();
         String finalStepId = processStepOrderRepository.findAll().stream()
                 .filter(s -> s.getStepOrder() != null)
                 .max(Comparator.comparingInt(ProcessStepOrder::getStepOrder))
                 .map(ProcessStepOrder::getStepId)
                 .orElse(null);
         if (finalStepId == null) {
-            return new ProductionStatusResponseDTO(0L, null, today);
+            return new ProductionStatusResponseDTO(0L, null, today, simNow);
         }
         LocalDateTime dayStart = today.atStartOfDay();
         LocalDateTime dayEnd = today.plusDays(1).atStartOfDay();
         long completed = workStatusRepository.sumFinalStepOutputAll(dayStart, dayEnd, finalStepId);
         LocalDateTime latest = workStatusRepository.latestFinalStepAt(dayStart, dayEnd, finalStepId);
-        return new ProductionStatusResponseDTO(completed, latest, today);
+        return new ProductionStatusResponseDTO(completed, latest, today, simNow);
     }
 }
