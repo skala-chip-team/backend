@@ -26,11 +26,14 @@ import com.skala.chip.monitoring.service.ScheduleService;
 import com.skala.chip.monitoring.service.StatisticsService;
 import com.skala.chip.monitoring.service.UnitService;
 import com.skala.chip.monitoring.service.WorkStatusService;
+import com.skala.chip.user.service.DistrictAccessGuard;
 import io.swagger.v3.oas.annotations.Operation;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Set;
 
 @RestController
 @RequestMapping("/api/monitoring")
@@ -49,13 +52,23 @@ public class MonitoringController {
     private final StepQueueService stepQueueService;
     private final DistrictMachineService districtMachineService;
     private final MonitoringOverviewService monitoringOverviewService;
+    private final DistrictAccessGuard districtAccessGuard;
 
     @Operation(summary = "전체 대시보드 (모든 구역 원자적 스냅샷)",
             description = "한 번의 시뮬 스냅샷으로 전 구역의 summary/machines/stepQueues/reschedule 를 반환한다. "
                     + "summary.totalMachineCount == machines.length 가 항상 보장된다.")
     @GetMapping("/overview")
-    public ApiResponse<List<MonitoringOverviewResponseDTO.DistrictOverview>> getOverview() {
-        return ApiResponse.success(monitoringOverviewService.getOverview());
+    public ApiResponse<List<MonitoringOverviewResponseDTO.DistrictOverview>> getOverview(
+            @AuthenticationPrincipal String email
+    ) {
+        Set<String> allowed = districtAccessGuard.allowedDistrictIds(email); // ADMIN 이면 null(전체)
+        List<MonitoringOverviewResponseDTO.DistrictOverview> overview = monitoringOverviewService.getOverview();
+        if (allowed != null) {
+            overview = overview.stream()
+                    .filter(o -> allowed.contains(o.getDistrictId()))
+                    .toList();
+        }
+        return ApiResponse.success(overview);
     }
 
     @Operation(summary = "전체 장비 조회")
@@ -157,8 +170,10 @@ public class MonitoringController {
     @Operation(summary = "구역별 위험도 조회")
     @GetMapping("/districts/{districtId}/risks")
     public ApiResponse<List<DelayRiskResponseDTO.RiskInfo>> getDistrictRisks(
-            @PathVariable String districtId
+            @PathVariable String districtId,
+            @AuthenticationPrincipal String email
     ) {
+        districtAccessGuard.assertDistrict(email, districtId);
         return ApiResponse.success(
                 delayRiskService.getDistrictRisks(districtId)
         );
@@ -183,8 +198,10 @@ public class MonitoringController {
     @Operation(summary = "구역별 큐 조회")
     @GetMapping("/districts/{districtId}/queues")
     public ApiResponse<List<QueueResponseDTO.QueueInfo>> getDistrictQueues(
-            @PathVariable String districtId
+            @PathVariable String districtId,
+            @AuthenticationPrincipal String email
     ) {
+        districtAccessGuard.assertDistrict(email, districtId);
         return ApiResponse.success(
                 queueService.getDistrictQueues(districtId)
         );
@@ -203,8 +220,10 @@ public class MonitoringController {
     @Operation(summary = "구역 상태 요약 조회")
     @GetMapping("/districts/{districtId}/summary")
     public ApiResponse<DistrictSummaryResponseDTO.DistrictSummary> getDistrictSummary(
-            @PathVariable String districtId
+            @PathVariable String districtId,
+            @AuthenticationPrincipal String email
     ) {
+        districtAccessGuard.assertDistrict(email, districtId);
         return ApiResponse.success(
                 districtSummaryService.getDistrictSummary(districtId)
         );
@@ -219,8 +238,10 @@ public class MonitoringController {
     @Operation(summary = "구역 스케줄 간트 차트 조회")
     @GetMapping("/districts/{districtId}/schedules/gantt")
     public ApiResponse<ScheduleGanttResponseDTO.DistrictGantt> getDistrictScheduleGantt(
-            @PathVariable String districtId
+            @PathVariable String districtId,
+            @AuthenticationPrincipal String email
     ) {
+        districtAccessGuard.assertDistrict(email, districtId);
         return ApiResponse.success(
                 scheduleGanttService.getDistrictGantt(districtId)
         );
@@ -229,8 +250,10 @@ public class MonitoringController {
     @Operation(summary = "구역 step별 큐 정보 조회")
     @GetMapping("/districts/{districtId}/queues/by-step")
     public ApiResponse<StepQueueResponseDTO.DistrictStepQueue> getDistrictStepQueues(
-            @PathVariable String districtId
+            @PathVariable String districtId,
+            @AuthenticationPrincipal String email
     ) {
+        districtAccessGuard.assertDistrict(email, districtId);
         return ApiResponse.success(
                 stepQueueService.getDistrictStepQueues(districtId)
         );
@@ -240,8 +263,10 @@ public class MonitoringController {
     @GetMapping("/districts/{districtId}/machines")
     public ApiResponse<DistrictMachineResponseDTO.DistrictMachines> getDistrictMachines(
             @PathVariable String districtId,
-            @RequestParam(required = false) String stepId
+            @RequestParam(required = false) String stepId,
+            @AuthenticationPrincipal String email
     ) {
+        districtAccessGuard.assertDistrict(email, districtId);
         return ApiResponse.success(
                 districtMachineService.getDistrictMachines(districtId, stepId)
         );
@@ -287,9 +312,10 @@ public class MonitoringController {
     @Operation(summary = "구역별 작업 상태 조회")
     @GetMapping("/districts/{districtId}/work-status")
     public ApiResponse<List<WorkStatusResponseDTO.WorkStatusInfo>> getDistrictWorkStatuses(
-            @PathVariable String districtId
+            @PathVariable String districtId,
+            @AuthenticationPrincipal String email
     ) {
-
+        districtAccessGuard.assertDistrict(email, districtId);
         return ApiResponse.success(
                 workStatusService.getDistrictWorkStatuses(districtId)
         );
