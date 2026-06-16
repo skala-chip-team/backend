@@ -619,6 +619,19 @@ public class RescheduleGroupService {
                 result.getTotalPages());
     }
 
+    /**
+     * 시뮬레이션 새 run 시작 시 이전 재조정 산출물(그룹·선택)을 모두 정리한다.
+     * FK(fk_rs_group: selection→group) 때문에 selection 을 먼저 지운다.
+     * @return 삭제된 그룹 수
+     */
+    @Transactional
+    public int clearAllForNewSimRun() {
+        long count = rescheduleGroupRepository.count();
+        rescheduleSelectionRepository.deleteAllInBatch();
+        rescheduleGroupRepository.deleteAllInBatch();
+        return (int) count;
+    }
+
     private List<RescheduleGroup> filterByStatus(List<RescheduleGroup> groups, String status) {
         if (status == null || status.isBlank()) {
             return groups;
