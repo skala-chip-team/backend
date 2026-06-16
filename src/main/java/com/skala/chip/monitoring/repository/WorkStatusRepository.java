@@ -11,31 +11,38 @@ import java.util.List;
 public interface WorkStatusRepository extends JpaRepository<WorkStatus, String> {
 
     /**
-     * 금일 생산량(완성품) 집계용: [dayStart, dayEnd) 에 시작된 작업 중 "최종 공정(finalStepId)" 의
-     * output_qty 합. 한 unit 이 여러 공정을 거치며 매 step 마다 work_status 가 생기므로, 전 공정을
-     * 합치면 완성품 수가 (공정 수)배로 부풀려진다. 최종 공정만 집계해 실제 완성 수량을 구한다.
+     * 금일 생산량(완성품) 집계용: plan_date 가 오늘인 주문에 속한 unit 의 최종 공정(finalStepId) output_qty 합.
+     * end_time 날짜 기준 대신 주문 plan_date 기준으로 집계해 전날 지연 완료분이 오늘 달성률에 섞이지 않도록 한다.
      */
     @Query("select coalesce(sum(w.outputQty), 0) from WorkStatus w "
             + "where w.machine.district.districtId = :districtId "
-            + "and w.startTime >= :dayStart and w.startTime < :dayEnd "
-            + "and w.schedule.stepId = :finalStepId")
+            + "and w.schedule.stepId = :finalStepId "
+            + "and w.endTime is not null and w.outputQty > 0 "
+            + "and w.schedule.unit.orderId in ("
+            + "  select o.orderId from DailyOrder o "
+            + "  where o.district.districtId = :districtId "
+            + "  and o.planDate = :planDate"
+            + ")")
     long sumFinalStepOutput(@Param("districtId") String districtId,
-                            @Param("dayStart") LocalDateTime dayStart,
-                            @Param("dayEnd") LocalDateTime dayEnd,
+                            @Param("planDate") java.time.LocalDate planDate,
                             @Param("finalStepId") String finalStepId);
 
-    /** 금일 전체 구역 완성품(최종 공정 output) 합. 생산 완료 알림용. */
+    /** 금일 전체 구역 완성품(최종 공정 output) 합. plan_date 기준. */
     @Query("select coalesce(sum(w.outputQty), 0) from WorkStatus w "
-            + "where w.startTime >= :dayStart and w.startTime < :dayEnd "
-            + "and w.schedule.stepId = :finalStepId")
-    long sumFinalStepOutputAll(@Param("dayStart") LocalDateTime dayStart,
-                               @Param("dayEnd") LocalDateTime dayEnd,
+            + "where w.schedule.stepId = :finalStepId "
+            + "and w.endTime is not null and w.outputQty > 0 "
+            + "and w.schedule.unit.orderId in ("
+            + "  select o.orderId from DailyOrder o "
+            + "  where o.planDate = :planDate"
+            + ")")
+    long sumFinalStepOutputAll(@Param("planDate") java.time.LocalDate planDate,
                                @Param("finalStepId") String finalStepId);
 
-    /** 금일 최종 공정 작업의 가장 최근 시작 시각(sim). 생산 완료 알림용. */
-    @Query("select max(w.startTime) from WorkStatus w "
-            + "where w.startTime >= :dayStart and w.startTime < :dayEnd "
-            + "and w.schedule.stepId = :finalStepId")
+    /** 금일 최종 공정 작업의 가장 최근 완료 시각(sim). 생산 완료 알림용. */
+    @Query("select max(w.endTime) from WorkStatus w "
+            + "where w.endTime >= :dayStart and w.endTime < :dayEnd "
+            + "and w.schedule.stepId = :finalStepId "
+            + "and w.endTime is not null and w.outputQty > 0")
     LocalDateTime latestFinalStepAt(@Param("dayStart") LocalDateTime dayStart,
                                     @Param("dayEnd") LocalDateTime dayEnd,
                                     @Param("finalStepId") String finalStepId);

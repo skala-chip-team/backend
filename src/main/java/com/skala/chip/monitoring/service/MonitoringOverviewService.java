@@ -8,7 +8,6 @@ import com.skala.chip.monitoring.domain.MachineStepMap;
 import com.skala.chip.monitoring.domain.ProcessQueue;
 import com.skala.chip.monitoring.domain.ProcessStepOrder;
 import com.skala.chip.monitoring.domain.ScheduleMaster;
-import com.skala.chip.monitoring.domain.WorkStatus;
 import com.skala.chip.monitoring.dto.MonitoringOverviewResponseDTO;
 import com.skala.chip.monitoring.dto.MonitoringOverviewResponseDTO.DistrictOverview;
 import com.skala.chip.monitoring.dto.MonitoringOverviewResponseDTO.LatestReschedule;
@@ -155,11 +154,17 @@ public class MonitoringOverviewService {
                 .mapToDouble(Double::doubleValue).average().orElse(0.0);
         avgWait = Math.round(avgWait * 10) / 10.0;
 
-        long dailyOutput = workStatusRepository.findByMachine_District_DistrictId(districtId).stream()
-                .filter(ws -> ws.getStartTime() != null
-                        && ws.getStartTime().toLocalDate().isEqual(today)
-                        && ws.getOutputQty() != null)
-                .mapToLong(WorkStatus::getOutputQty).sum();
+        // 최종 공정(step_order 최대)만 합산해 실제 완성 수량을 구한다.
+        // 한 unit이 N단계를 거치면 step마다 work_status 행이 생기므로 전 공정을 합치면 N배로 부풀려진다.
+        // 기계 고장 재처리 시 동일 step에 output_qty=0(실패) + output_qty=UNIT_SIZE_QTY(성공) 행이 추가로
+        // 생겨 더 심해지므로, 최종 공정 필터 + DB 레벨 집계로 정확히 산출한다.
+        String finalStepId = stepMap.values().stream()
+                .filter(s -> s.getStepOrder() != null)
+                .max(Comparator.comparingInt(ProcessStepOrder::getStepOrder))
+                .map(ProcessStepOrder::getStepId)
+                .orElse(null);
+        long dailyOutput = finalStepId == null ? 0L
+                : workStatusRepository.sumFinalStepOutput(districtId, today, finalStepId);
 
         Summary summary = Summary.builder()
                 .totalMachineCount(total)
