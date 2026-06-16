@@ -18,6 +18,9 @@ public class ScheduleGanttResponseDTO {
         private String districtId;
         private String districtName;
 
+        // 시뮬레이션 스냅샷 시각(sim 기준). 프론트가 경과시간 계산·재시뮬 권장 판단에 사용. 데이터 없으면 실제 시각.
+        private LocalDateTime simulatedAt;
+
         private List<StepGantt> steps;
     }
 
@@ -38,8 +41,14 @@ public class ScheduleGanttResponseDTO {
 
     /**
      * 간트 차트의 막대 한 개 (스케줄 1건).
-     * estimatedStart ~ estimatedEnd 구간으로 막대를 렌더링한다.
-     * estimatedEnd = estimatedStart + step_avg_time(분).
+     *
+     * 렌더링 우선순위(프론트):
+     *  - 막대 시작 = actualStart ?? estimatedStart
+     *  - 막대 종료 = actualEnd ?? projectedEnd ?? estimatedEnd
+     *
+     * estimatedStart/estimatedEnd : 계획(예측) 구간. estimatedEnd = estimatedStart + step_avg_time(분).
+     * actualStart/actualEnd       : 실제 작업 상태(work_status)의 실제 시작/종료. 없으면 null.
+     * projectedEnd                : 진행 중(실제 시작 O, 실제 종료 X)일 때 actualStart + step_avg_time 로 산출한 예상 종료.
      */
     @Getter
     @Builder
@@ -59,5 +68,9 @@ public class ScheduleGanttResponseDTO {
 
         private LocalDateTime estimatedStart;
         private LocalDateTime estimatedEnd;
+
+        private LocalDateTime actualStart;
+        private LocalDateTime actualEnd;
+        private LocalDateTime projectedEnd;
     }
 }

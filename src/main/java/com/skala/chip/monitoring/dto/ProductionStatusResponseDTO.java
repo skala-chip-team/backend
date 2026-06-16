@@ -9,9 +9,11 @@ import java.time.LocalDateTime;
  * @param completedTodayQty   금일(sim 기준) 전체 구역 완성품 수(최종 공정 output 합)
  * @param latestCompletionAt  최근 완성 작업 시작 시각(sim). 없으면 null.
  * @param planDate            sim 기준 오늘 날짜 (일 경계 리셋 판별용)
+ * @param simulatedAt         시뮬레이션 스냅샷 시각(sim 기준). 프론트가 갱신 시각·경과시간 표시에 사용.
  */
 public record ProductionStatusResponseDTO(
         long completedTodayQty,
         LocalDateTime latestCompletionAt,
-        LocalDate planDate
+        LocalDate planDate,
+        LocalDateTime simulatedAt
 ) {}
