@@ -46,6 +46,11 @@ public class UserServiceImpl implements UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(UserNotFoundException::new);
 
+        // 관리자(ADMIN) 계정의 역할은 변경 불가 (권한 강등/탈취 방지)
+        if (user.getRole() != null && "ADMIN".equalsIgnoreCase(user.getRole().getRoleName())) {
+            throw new BusinessException(ErrorCode.ADMIN_ROLE_CHANGE_FORBIDDEN);
+        }
+
         UserRole newRole = userRoleRepository.findByRoleName(request.getRoleName())
                 .orElseThrow(() -> new BusinessException(ErrorCode.ROLE_NOT_FOUND));
 

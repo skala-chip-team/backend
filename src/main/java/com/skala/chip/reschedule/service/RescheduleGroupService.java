@@ -20,17 +20,25 @@ import com.skala.chip.reschedule.dto.RescheduleGroupSummaryResponse;
 import com.skala.chip.reschedule.dto.RescheduleOption;
 import com.skala.chip.reschedule.dto.RescheduleSelectionResponse;
 import com.skala.chip.reschedule.dto.SelectRescheduleRequest;
+import com.skala.chip.reschedule.dto.RescheduleHistoryResponse;
 import com.skala.chip.reschedule.repository.RescheduleGroupRepository;
 import com.skala.chip.reschedule.repository.RescheduleSelectionRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeParseException;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -56,6 +64,7 @@ public class RescheduleGroupService {
     private static final String GROUP_STATUS_EXPIRED = "expired";
     private static final String STATUS_FILTER_ACTIVE = "active";   // 진행중 = pending + approved
     private static final String SELECTION_STATUS_APPLIED = "applied";
+    private static final long MAX_HISTORY_DAYS = 92;              // 이력 조회 최대 기간
 
     private final RescheduleGroupRepository rescheduleGroupRepository;
     private final ProcessStepOrderRepository processStepOrderRepository;
@@ -531,6 +540,83 @@ public class RescheduleGroupService {
                         RescheduleGroupSummaryResponse::createdAt,
                         Comparator.nullsLast(Comparator.reverseOrder())))
                 .toList();
+    }
+
+    /**
+     * 기간별 재조정 이력 조회 (페이지네이션).
+     *
+     * @param districtId       특정 구역 (controller 에서 접근 권한 검증됨). null 이면 allowedDistricts 적용.
+     * @param allowedDistricts 사용자 담당 구역. null = 전체 허용(ADMIN). districtId 가 있으면 무시.
+     * @param fromStr/toStr    조회 기간(yyyy-MM-dd, 포함). to 는 해당 일자 끝까지 포함.
+     */
+    @Transactional(readOnly = true)
+    public RescheduleHistoryResponse getHistory(
+            String districtId, Set<String> allowedDistricts,
+            String fromStr, String toStr, int page, int size) {
+
+        LocalDate from;
+        LocalDate to;
+        try {
+            from = LocalDate.parse(fromStr);
+            to = LocalDate.parse(toStr);
+        } catch (DateTimeParseException e) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT);
+        }
+        if (to.isBefore(from)) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT);
+        }
+        if (ChronoUnit.DAYS.between(from, to) > MAX_HISTORY_DAYS) {
+            throw new BusinessException(ErrorCode.RESCHEDULE_HISTORY_RANGE_EXCEEDED);
+        }
+
+        LocalDateTime fromDt = from.atStartOfDay();
+        LocalDateTime toDt = to.plusDays(1).atStartOfDay(); // 끝 일자 포함
+        Pageable pageable = PageRequest.of(
+                Math.max(page, 0), size <= 0 ? 20 : size,
+                Sort.by(Sort.Direction.DESC, "actedAt"));
+
+        Page<RescheduleGroup> result;
+        if (districtId != null && !districtId.isBlank()) {
+            result = rescheduleGroupRepository
+                    .findByDistrictIdAndActedAtBetween(districtId, fromDt, toDt, pageable);
+        } else if (allowedDistricts != null) {
+            // 비-ADMIN: 담당 구역만. 담당 구역이 없으면 빈 결과.
+            if (allowedDistricts.isEmpty()) {
+                return new RescheduleHistoryResponse(List.of(), pageable.getPageNumber(),
+                        pageable.getPageSize(), 0, 0);
+            }
+            result = rescheduleGroupRepository
+                    .findByDistrictIdInAndActedAtBetween(allowedDistricts, fromDt, toDt, pageable);
+        } else {
+            result = rescheduleGroupRepository.findByActedAtBetween(fromDt, toDt, pageable);
+        }
+
+        List<RescheduleGroup> groups = result.getContent();
+        Map<String, ProcessStepOrder> stepMap = processStepOrderRepository.findAll().stream()
+                .collect(Collectors.toMap(
+                        ProcessStepOrder::getStepId, Function.identity(), (a, b) -> a));
+        List<String> riskIds = groups.stream()
+                .map(RescheduleGroup::getMemberRiskIds)
+                .filter(Objects::nonNull)
+                .flatMap(List::stream)
+                .distinct()
+                .toList();
+        Map<String, DelayRisk> riskById = riskIds.isEmpty()
+                ? Map.of()
+                : delayRiskRepository.findByRiskIdIn(riskIds).stream()
+                        .collect(Collectors.toMap(
+                                DelayRisk::getRiskId, Function.identity(), (a, b) -> a));
+
+        List<RescheduleGroupSummaryResponse> content = groups.stream()
+                .map(g -> toSummary(g, stepMap, riskById))
+                .toList();
+
+        return new RescheduleHistoryResponse(
+                content,
+                result.getNumber(),
+                result.getSize(),
+                result.getTotalElements(),
+                result.getTotalPages());
     }
 
     private List<RescheduleGroup> filterByStatus(List<RescheduleGroup> groups, String status) {

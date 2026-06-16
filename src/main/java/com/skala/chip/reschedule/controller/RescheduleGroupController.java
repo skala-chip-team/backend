@@ -3,6 +3,7 @@ package com.skala.chip.reschedule.controller;
 import com.skala.chip.common.ApiResponse;
 import com.skala.chip.reschedule.dto.RescheduleGroupDetailResponse;
 import com.skala.chip.reschedule.dto.RescheduleGroupSummaryResponse;
+import com.skala.chip.reschedule.dto.RescheduleHistoryResponse;
 import com.skala.chip.reschedule.dto.RescheduleSelectionResponse;
 import com.skala.chip.reschedule.dto.SelectRescheduleRequest;
 import com.skala.chip.reschedule.domain.RescheduleGroup;
@@ -67,6 +68,30 @@ public class RescheduleGroupController {
                     .toList();
         }
         return ApiResponse.success(groups);
+    }
+
+    /**
+     * 기간별 재조정 이력 조회 (페이지네이션).
+     * @param from/to 조회 기간(yyyy-MM-dd, 포함). 최대 92일.
+     * @param districtId 구역 필터(선택). 없으면 담당 구역 전체(ADMIN 은 전체).
+     */
+    @GetMapping("/history")
+    public ApiResponse<RescheduleHistoryResponse> getHistory(
+            @RequestParam String from,
+            @RequestParam String to,
+            @RequestParam(required = false) String districtId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @AuthenticationPrincipal String email
+    ) {
+        if (districtId != null && !districtId.isBlank()) {
+            districtAccessGuard.assertDistrict(email, districtId);
+            return ApiResponse.success(
+                    rescheduleGroupService.getHistory(districtId, null, from, to, page, size));
+        }
+        Set<String> allowed = districtAccessGuard.allowedDistrictIds(email); // null = ADMIN(전체)
+        return ApiResponse.success(
+                rescheduleGroupService.getHistory(null, allowed, from, to, page, size));
     }
 
     /**
