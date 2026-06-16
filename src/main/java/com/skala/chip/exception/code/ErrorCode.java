@@ -37,6 +37,9 @@ public enum ErrorCode {
     MACHINE_NOT_FOUND(404, "존재하지 않는 장비입니다."),
     PROCESS_STEP_NOT_FOUND(404, "존재하지 않는 공정 STEP입니다."),
     MACHINE_HAS_ACTIVE_SCHEDULE(409, "진행 중인 스케줄이 있어 장비를 삭제할 수 없습니다."),
+    MACHINE_FIELD_REQUIRED(400, "필수 입력값(장비 타입/구역)이 누락되었습니다."),
+    MACHINE_UNAVAILABLE_FOR_MAPPING(409, "사용 불가능 상태(정지/점검중)의 장비는 공정에 매핑할 수 없습니다."),
+    MACHINE_STEP_ALREADY_MAPPED(409, "이미 해당 공정에 매핑된 장비입니다."),
 
     // --- Reschedule ---
     RESCHEDULE_GROUP_NOT_FOUND(404, "존재하지 않는 재조정 그룹입니다."),
@@ -45,9 +48,13 @@ public enum ErrorCode {
     RESCHEDULE_EXPIRED(409, "만료된 재조정안은 선택할 수 없습니다."),
     RESCHEDULE_NOT_ACTIONABLE(409, "현재 대기열에 재조정 가능한 위험이 없습니다. (해당 unit이 이미 처리되었습니다)"),
     RESCHEDULE_GENERATE_FAILED(502, "재조정안 생성에 실패했습니다. (에이전트 호출 오류)"),
+    RESCHEDULE_HISTORY_RANGE_EXCEEDED(400, "조회 기간이 최대 허용 기간(92일)을 초과했습니다."),
 
     // --- Order ---
     ORDER_NOT_FOUND(404, "존재하지 않는 주문입니다."),
+
+    // --- User ---
+    ADMIN_ROLE_CHANGE_FORBIDDEN(403, "관리자 계정의 역할은 변경할 수 없습니다."),
 
     // --- Chatbot ---
     // 세션 lifecycle·소유권·메시지 저장은 백엔드가 소유한다. AI 서버(/infer)는 무상태 추론만.

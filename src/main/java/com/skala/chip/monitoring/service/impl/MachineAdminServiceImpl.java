@@ -21,6 +21,7 @@ import org.springframework.util.StringUtils;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -30,6 +31,8 @@ import java.util.stream.Collectors;
 public class MachineAdminServiceImpl implements MachineAdminService {
 
     private static final String MACHINE_ID_PREFIX = "MACHINE-";
+    // 공정 매핑이 불가능한(사용 불가) 장비 상태
+    private static final Set<String> UNUSABLE_STATUSES = Set.of("정지", "점검중");
 
     private final MachineRepository machineRepository;
     private final MachineStepMapRepository machineStepMapRepository;
@@ -78,9 +81,14 @@ public class MachineAdminServiceImpl implements MachineAdminService {
     @Override
     @Transactional
     public MachineAdminDTO.MachineItem createMachine(MachineAdminDTO.UpsertRequest request) {
+        validateRequired(request);
         DistrictMaster district = districtRepository.findById(request.districtId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.DISTRICT_NOT_FOUND));
         ProcessStepOrder step = resolveStep(request.stepId());
+        // 공정 매핑 시 사용 불가 상태(정지/점검중) 장비는 등록 제한
+        if (step != null) {
+            assertMappable(request.machineStatus());
+        }
 
         MachineMaster machine = MachineMaster.builder()
                 .machineId(nextMachineId())
@@ -103,11 +111,16 @@ public class MachineAdminServiceImpl implements MachineAdminService {
     @Override
     @Transactional
     public MachineAdminDTO.MachineItem updateMachine(String machineId, MachineAdminDTO.UpsertRequest request) {
+        validateRequired(request);
         MachineMaster machine = machineRepository.findById(machineId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.MACHINE_NOT_FOUND));
         DistrictMaster district = districtRepository.findById(request.districtId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.DISTRICT_NOT_FOUND));
         ProcessStepOrder step = resolveStep(request.stepId());
+        // 공정 매핑 시 사용 불가 상태(정지/점검중) 장비는 매핑 제한
+        if (step != null) {
+            assertMappable(request.machineStatus());
+        }
 
         machine.setMachineType(request.machineType());
         machine.setDistrict(district);
@@ -143,6 +156,22 @@ public class MachineAdminServiceImpl implements MachineAdminService {
     }
 
     // --- helpers ---
+
+    /** 필수 입력값(장비 타입/구역) 검증. */
+    private void validateRequired(MachineAdminDTO.UpsertRequest request) {
+        if (request == null
+                || !StringUtils.hasText(request.machineType())
+                || !StringUtils.hasText(request.districtId())) {
+            throw new BusinessException(ErrorCode.MACHINE_FIELD_REQUIRED);
+        }
+    }
+
+    /** 사용 불가 상태(정지/점검중) 장비는 공정 매핑 불가. */
+    private void assertMappable(String machineStatus) {
+        if (machineStatus != null && UNUSABLE_STATUSES.contains(machineStatus)) {
+            throw new BusinessException(ErrorCode.MACHINE_UNAVAILABLE_FOR_MAPPING);
+        }
+    }
 
     private ProcessStepOrder resolveStep(String stepId) {
         if (!StringUtils.hasText(stepId)) {

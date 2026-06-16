@@ -1,12 +1,15 @@
 package com.skala.chip.reschedule.repository;
 
 import com.skala.chip.reschedule.domain.RescheduleGroup;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -15,6 +18,16 @@ public interface RescheduleGroupRepository extends JpaRepository<RescheduleGroup
     // 같은 (구역, step) 의 특정 상태 그룹 조회 (중복 방지용)
     Optional<RescheduleGroup> findByDistrictIdAndStepIdAndGroupStatus(
             String districtId, String stepId, String groupStatus);
+
+    // --- 기간별 재조정 이력 (페이지네이션, acted_at 범위) ---
+    Page<RescheduleGroup> findByActedAtBetween(
+            LocalDateTime from, LocalDateTime to, Pageable pageable);
+
+    Page<RescheduleGroup> findByDistrictIdAndActedAtBetween(
+            String districtId, LocalDateTime from, LocalDateTime to, Pageable pageable);
+
+    Page<RescheduleGroup> findByDistrictIdInAndActedAtBetween(
+            Collection<String> districtIds, LocalDateTime from, LocalDateTime to, Pageable pageable);
 
     // 관리 목록: 구역별 조회
     List<RescheduleGroup> findByDistrictId(String districtId);
