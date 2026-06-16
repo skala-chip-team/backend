@@ -2,6 +2,7 @@ package com.skala.chip.reschedule.scheduler;
 
 import com.skala.chip.monitoring.repository.DelayRiskRepository;
 import com.skala.chip.reschedule.client.AiAgentClient;
+import com.skala.chip.reschedule.service.RescheduleGroupService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -30,8 +31,10 @@ public class SimAutoRealtimeScheduler {
 
     private final AiAgentClient aiAgentClient;
     private final DelayRiskRepository delayRiskRepository;
+    private final RescheduleGroupService rescheduleGroupService;
 
     private volatile boolean switchedThisRun = false;
+    private volatile boolean prevRunning = false;
     private volatile Double lastSimNowMin = null;
 
     @Scheduled(fixedDelay = 5 * 1000)
@@ -46,17 +49,31 @@ public class SimAutoRealtimeScheduler {
             if (!running) {
                 // 정지/종료 상태 → 다음 run 을 위해 초기화
                 switchedThisRun = false;
+                prevRunning = false;
                 lastSimNowMin = null;
                 return;
             }
 
             Double simNow = status.get("sim_now_min") instanceof Number n ? n.doubleValue() : null;
-            // 시뮬 재시작(sim_now 되감김) 감지 → 플래그 리셋
-            if (simNow != null && lastSimNowMin != null
-                    && simNow + RESTART_BACKWARD_MARGIN_MIN < lastSimNowMin) {
-                switchedThisRun = false;
-            }
+            boolean backward = simNow != null && lastSimNowMin != null
+                    && simNow + RESTART_BACKWARD_MARGIN_MIN < lastSimNowMin;
+            // 새 run 시작: 직전에 정지였다가 running 이 되었거나(idle→running), sim_now 가 되감김(재시작).
+            boolean newRun = !prevRunning || backward;
+            prevRunning = true;
             lastSimNowMin = simNow;
+
+            if (newRun) {
+                switchedThisRun = false;
+                // 새 run 시작 → 이전 재조정 그룹/선택 정리
+                try {
+                    int cleared = rescheduleGroupService.clearAllForNewSimRun();
+                    if (cleared > 0) {
+                        log.info("시뮬 새 run 감지 → 이전 재조정 그룹 {}건 정리", cleared);
+                    }
+                } catch (Exception e) {
+                    log.warn("새 run 재조정 그룹 정리 실패: {}", e.getMessage());
+                }
+            }
 
             if (switchedThisRun) {
                 return; // 이번 run 은 이미 realtime 으로 전환함
