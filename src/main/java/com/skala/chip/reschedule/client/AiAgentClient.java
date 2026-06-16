@@ -87,6 +87,53 @@ public class AiAgentClient {
         }
     }
 
+    // ── 시뮬레이션 속도 제어 (/sim/*) ────────────────────────────────────────
+
+    /** 시뮬레이션 상태 조회(/sim/status). 실패 시 null. */
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> simStatus() {
+        try {
+            return aiRestClient.get().uri("/sim/status").retrieve().body(Map.class);
+        } catch (RestClientException e) {
+            log.warn("/sim/status 호출 실패: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    /** 시뮬레이션 속도 토글(/sim/speed/toggle). 응답(sim_factor/preset) 반환, 실패 시 null. */
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> toggleSpeed() {
+        try {
+            return aiRestClient.post()
+                    .uri("/sim/speed/toggle")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(Map.of())
+                    .retrieve()
+                    .body(Map.class);
+        } catch (RestClientException e) {
+            log.warn("/sim/speed/toggle 호출 실패: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * 시뮬레이션을 realtime 으로 보장한다.
+     * toggle 은 fast↔realtime 플립이라, 응답 preset 을 확인해 realtime 이 아니면 한 번 더 토글한다(최대 2회).
+     * @return realtime 전환 성공 여부
+     */
+    public boolean ensureRealtime() {
+        for (int i = 0; i < 2; i++) {
+            Map<String, Object> res = toggleSpeed();
+            if (res == null) {
+                return false;
+            }
+            if ("realtime".equals(res.get("preset"))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /** AI 서비스 호출 실패를 나타내는 런타임 예외. */
     public static class AiAgentException extends RuntimeException {
         public AiAgentException(String message, Throwable cause) {
