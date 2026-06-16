@@ -31,6 +31,7 @@ public enum ErrorCode {
     DUPLICATE_EMAIL(409, "이미 사용 중인 이메일입니다."),
     ROLE_NOT_FOUND(404, "존재하지 않는 역할입니다."),
     DISTRICT_NOT_FOUND(404, "존재하지 않는 구역입니다."),
+    DISTRICT_FORBIDDEN(403, "담당 구역이 아니어서 접근할 수 없습니다."),
 
     // --- Machine (장비 설정) ---
     MACHINE_NOT_FOUND(404, "존재하지 않는 장비입니다."),
