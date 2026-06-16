@@ -7,6 +7,7 @@ import com.skala.chip.user.repository.UserDistrictMapRepository;
 import com.skala.chip.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -39,6 +40,7 @@ public class DistrictAccessGuard {
                 .orElseThrow(() -> new BusinessException(ErrorCode.DISTRICT_FORBIDDEN));
     }
 
+    @Transactional(readOnly = true)
     public boolean isAdmin(String email) {
         if (email == null || email.isBlank() || ANONYMOUS.equals(email)) {
             return false;
@@ -49,6 +51,7 @@ public class DistrictAccessGuard {
     }
 
     /** 특정 구역 접근을 강제 검증한다. ADMIN 통과, 담당 구역이 아니면 403. */
+    @Transactional(readOnly = true)
     public void assertDistrict(String email, String districtId) {
         User user = resolveUser(email);
         if (isAdminUser(user)) {
@@ -65,6 +68,7 @@ public class DistrictAccessGuard {
      * 사용자가 접근 가능한 구역 ID 집합을 반환한다.
      * ADMIN 이면 {@code null} 을 반환하여 "전체 허용"을 의미한다(필터 생략용).
      */
+    @Transactional(readOnly = true)
     public Set<String> allowedDistrictIds(String email) {
         User user = resolveUser(email);
         if (isAdminUser(user)) {
