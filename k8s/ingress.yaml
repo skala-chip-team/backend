@@ -1,0 +1,46 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: skala-chip-ingress
+  namespace: skala3-finalproj-class3-team10
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "120"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "120"
+spec:
+  ingressClassName: public-nginx
+  rules:
+    - host: skala-chip-team10.skala25a.project.skala-ai.com
+      http:
+        paths:
+          # 백엔드 API
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: skala-chip-backend
+                port:
+                  number: 80
+          # 백엔드 헬스체크
+          - path: /health
+            pathType: Prefix
+            backend:
+              service:
+                name: skala-chip-backend
+                port:
+                  number: 80
+          # 백엔드 Swagger UI
+          - path: /swagger-ui
+            pathType: Prefix
+            backend:
+              service:
+                name: skala-chip-backend
+                port:
+                  number: 80
+          - path: /v3/api-docs
+            pathType: Prefix
+            backend:
+              service:
+                name: skala-chip-backend
+                port:
+                  number: 80
+          # /sim, /docs(AI Swagger) 는 CORS 때문에 별도 Ingress(ingress-sim.yaml)로 분리
