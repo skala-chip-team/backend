@@ -72,5 +72,9 @@ public class ScheduleGanttResponseDTO {
         private LocalDateTime actualStart;
         private LocalDateTime actualEnd;
         private LocalDateTime projectedEnd;
+
+        // 승인된 재조정(reschedule_selection)으로 이 (unit, step) 스케줄이 변경됐는지 여부.
+        // 계획 간트에서 "재조정 반영됨"을 색으로 구분하기 위함.
+        private boolean rescheduled;
     }
 }
