@@ -15,4 +15,8 @@ public interface ProcessQueueRepository extends JpaRepository<ProcessQueue, Stri
 
     // (구역, step) 의 현재 대기열. 재조정 가능(actionable) 위험 판별에 사용한다.
     List<ProcessQueue> findByDistrict_DistrictIdAndStepId(String districtId, String stepId);
+
+    // (구역, step) 의 현재 '대기' 큐를 queue_position 순으로. 승인 후 /replan new_order 구성에 사용.
+    List<ProcessQueue> findByDistrict_DistrictIdAndStepIdAndStatusOrderByQueuePositionAsc(
+            String districtId, String stepId, String status);
 }
