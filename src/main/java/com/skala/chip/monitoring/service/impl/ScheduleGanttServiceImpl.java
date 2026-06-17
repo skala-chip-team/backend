@@ -11,14 +11,19 @@ import com.skala.chip.monitoring.repository.ScheduleRepository;
 import com.skala.chip.monitoring.repository.WorkStatusRepository;
 import com.skala.chip.monitoring.service.ScheduleGanttService;
 import com.skala.chip.monitoring.service.SimClock;
+import com.skala.chip.reschedule.domain.RescheduleGroup;
+import com.skala.chip.reschedule.repository.RescheduleGroupRepository;
+import com.skala.chip.reschedule.repository.RescheduleSelectionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -31,12 +36,19 @@ public class ScheduleGanttServiceImpl implements ScheduleGanttService {
     private final ProcessStepOrderRepository processStepOrderRepository;
     private final WorkStatusRepository workStatusRepository;
     private final SimClock simClock;
+    private final RescheduleGroupRepository rescheduleGroupRepository;
+    private final RescheduleSelectionRepository rescheduleSelectionRepository;
+
+    private static final String GROUP_STATUS_APPROVED = "approved";
 
     @Override
     @Transactional(readOnly = true)
     public ScheduleGanttResponseDTO.DistrictGantt getDistrictGantt(String districtId) {
 
         DistrictMaster district = districtRepository.findById(districtId).orElse(null);
+
+        // 승인된 재조정으로 변경된 (unit|step) 키 집합 — 간트 막대 "재조정 반영됨" 표시용
+        Set<String> rescheduledKeys = buildRescheduledKeys(districtId);
 
         // 실제 작업 상태(work_status)를 scheduleId 기준으로 적재. 한 스케줄에 여러 건이면 가장 최근 시작을 사용.
         Map<String, WorkStatus> workBySchedule = workStatusRepository
@@ -75,7 +87,7 @@ public class ScheduleGanttServiceImpl implements ScheduleGanttService {
                     Integer avgTime = stepDef != null ? stepDef.getStepAvgTime() : null;
 
                     List<ScheduleGanttResponseDTO.GanttBar> bars = entry.getValue().stream()
-                            .map(s -> toBar(s, avgTime, workBySchedule.get(s.getScheduleId())))
+                            .map(s -> toBar(s, avgTime, workBySchedule.get(s.getScheduleId()), rescheduledKeys))
                             .sorted(Comparator.comparing(
                                     ScheduleGanttResponseDTO.GanttBar::getEstimatedStart,
                                     Comparator.nullsLast(Comparator.naturalOrder())))
@@ -109,9 +121,12 @@ public class ScheduleGanttServiceImpl implements ScheduleGanttService {
      * - work_status 가 있으면 actualStart/actualEnd(실제 시작/종료)를 함께 채운다.
      * - 진행 중(실제 시작 O, 실제 종료 X)이면 projectedEnd = actualStart + step_avg_time 로 예상 종료를 산출한다.
      */
-    private ScheduleGanttResponseDTO.GanttBar toBar(ScheduleMaster schedule, Integer stepAvgTime, WorkStatus work) {
+    private ScheduleGanttResponseDTO.GanttBar toBar(ScheduleMaster schedule, Integer stepAvgTime,
+                                                    WorkStatus work, Set<String> rescheduledKeys) {
 
         LocalDateTime start = schedule.getEstimatedStart();
+        boolean rescheduled = schedule.getUnit() != null
+                && rescheduledKeys.contains(schedule.getUnit().getUnitId() + "|" + schedule.getStepId());
         LocalDateTime end = (start != null && stepAvgTime != null)
                 ? start.plusMinutes(stepAvgTime)
                 : null;
@@ -153,6 +168,40 @@ public class ScheduleGanttServiceImpl implements ScheduleGanttService {
                 .actualStart(actualStart)
                 .actualEnd(actualEnd)
                 .projectedEnd(projectedEnd)
+                .rescheduled(rescheduled)
                 .build();
+    }
+
+    /**
+     * 해당 구역에서 승인(approved)된 재조정의 영향 (unit|step) 키 집합을 구성한다.
+     * reschedule_selection.selected_detail.after_schedule.units[].steps[].step_id 를 역산한다.
+     */
+    @SuppressWarnings("unchecked")
+    private Set<String> buildRescheduledKeys(String districtId) {
+        Set<String> keys = new HashSet<>();
+        for (RescheduleGroup group : rescheduleGroupRepository.findByDistrictId(districtId)) {
+            if (!GROUP_STATUS_APPROVED.equals(group.getGroupStatus())) {
+                continue;
+            }
+            rescheduleSelectionRepository.findByGroupId(group.getGroupId()).ifPresent(sel -> {
+                Object detail = sel.getSelectedDetail();
+                if (!(detail instanceof Map<?, ?> opt) || !(opt.get("after_schedule") instanceof Map<?, ?> sch)
+                        || !(sch.get("units") instanceof List<?> units)) {
+                    return;
+                }
+                for (Object u : units) {
+                    if (!(u instanceof Map<?, ?> unit) || !(unit.get("unit_id") instanceof String uid)
+                            || !(unit.get("steps") instanceof List<?> stepList)) {
+                        continue;
+                    }
+                    for (Object st : stepList) {
+                        if (st instanceof Map<?, ?> step && step.get("step_id") instanceof String sid) {
+                            keys.add(uid + "|" + sid);
+                        }
+                    }
+                }
+            });
+        }
+        return keys;
     }
 }
