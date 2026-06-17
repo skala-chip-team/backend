@@ -87,6 +87,35 @@ public class AiAgentClient {
         }
     }
 
+    /**
+     * 러닝 시뮬레이션 큐 재정렬(/replan). 승인된 재조정의 새 순서를 살아있는 sim 엔진에 반영한다.
+     * @param district 구역 id, @param step 공정명(process_step, 예: STEP_A), @param newOrder 새 unit 순서(현재 대기 큐 집합과 일치해야 함)
+     * @return 반영 성공 여부. sim 미실행(409)·검증 실패(400) 등은 false 로 처리하고 예외를 던지지 않는다(승인 자체는 성공으로 둔다).
+     */
+    public boolean replan(String district, String step, java.util.List<String> newOrder) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("district", district);
+        body.put("step", step);
+        body.put("new_order", newOrder);
+        try {
+            aiRestClient.post()
+                    .uri("/replan")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(body)
+                    .retrieve()
+                    .body(Map.class);
+            return true;
+        } catch (HttpClientErrorException e) {
+            // 409: sim 미실행 / 400: new_order 불일치 — 승인은 유지하고 sim 반영만 생략
+            log.info("/replan 미반영 (district={}, step={}, status={}): {}",
+                    district, step, e.getStatusCode().value(), e.getResponseBodyAsString());
+            return false;
+        } catch (RestClientException e) {
+            log.warn("/replan 호출 실패 (district={}, step={}): {}", district, step, e.getMessage());
+            return false;
+        }
+    }
+
     // ── 시뮬레이션 속도 제어 (/sim/*) ────────────────────────────────────────
 
     /** 시뮬레이션 상태 조회(/sim/status). 실패 시 null. */

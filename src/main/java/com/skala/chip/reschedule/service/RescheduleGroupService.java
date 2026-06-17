@@ -31,6 +31,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -74,6 +76,9 @@ public class RescheduleGroupService {
     private final ScheduleRepository scheduleRepository;
     private final MachineRepository machineRepository;
     private final com.skala.chip.monitoring.service.SimClock simClock;
+    private final com.skala.chip.reschedule.client.AiAgentClient aiAgentClient;
+
+    private static final String QUEUE_STATUS_WAITING = "대기";
 
     /**
      * 에이전트(/run) 결과를 그룹의 reschedule_detail 에 저장한다.
@@ -761,6 +766,30 @@ public class RescheduleGroupService {
         group.setRescheduleDetail(detail);
         group.setGroupStatus(GROUP_STATUS_APPROVED);
         rescheduleGroupRepository.save(group);
+
+        // 러닝 시뮬레이션에도 새 큐 순서를 반영(/replan).
+        // - new_order 는 방금 갱신한 process_queue 의 '대기' 큐를 queue_position 순으로 구성(현재 큐 집합과 일치 → AI 검증 통과).
+        // - 커밋 이후(afterCommit)에 호출해 롤백 시 sim 에 잘못 반영되는 것을 막고, HTTP 호출을 트랜잭션 밖으로 뺀다.
+        // - sim 미실행 등은 AiAgentClient.replan 이 false 로 흡수(승인 자체는 성공).
+        final String districtId = group.getDistrictId();
+        final String processStep = processStepOrderRepository.findById(group.getStepId())
+                .map(ProcessStepOrder::getProcessStep).orElse(null);
+        final List<String> newOrder = processQueueRepository
+                .findByDistrict_DistrictIdAndStepIdAndStatusOrderByQueuePositionAsc(
+                        districtId, group.getStepId(), QUEUE_STATUS_WAITING)
+                .stream()
+                .filter(qq -> qq.getUnit() != null && qq.getUnit().getUnitId() != null)
+                .map(qq -> qq.getUnit().getUnitId())
+                .toList();
+        if (processStep != null && !newOrder.isEmpty()
+                && TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    aiAgentClient.replan(districtId, processStep, newOrder);
+                }
+            });
+        }
 
         return new RescheduleSelectionResponse(
                 selection.getSelectionId(),
