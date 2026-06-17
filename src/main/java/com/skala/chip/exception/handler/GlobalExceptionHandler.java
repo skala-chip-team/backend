@@ -5,6 +5,7 @@ import com.skala.chip.exception.code.ErrorCode;
 import com.skala.chip.exception.custom.BusinessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -43,6 +44,18 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<?>> handleValidation(MethodArgumentNotValidException e) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(ApiResponse.fail(ErrorCode.INVALID_INPUT));
+    }
+
+    /**
+     * 메서드 레벨 권한 거부(@PreAuthorize) 처리.
+     * URL 레벨 거부는 SecurityConfig 의 AccessDeniedHandler 가 처리하지만,
+     * @EnableMethodSecurity 의 @PreAuthorize 거부는 디스패처 내부에서 발생해 핸들러를 거치지 않고
+     * 일반 예외(500)로 빠진다. 여기서 403 으로 매핑한다.
+     */
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ApiResponse<?>> handleAccessDenied(AccessDeniedException e) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(ApiResponse.fail(ErrorCode.FORBIDDEN));
     }
 
     /**
