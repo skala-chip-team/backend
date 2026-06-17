@@ -6,8 +6,14 @@ metadata:
   annotations:
     nginx.ingress.kubernetes.io/proxy-read-timeout: "120"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "120"
+    # cert-manager 로 Let's Encrypt 실인증서 자동 발급(자체서명 Fake Cert 제거)
+    cert-manager.io/cluster-issuer: letsencrypt-prod
 spec:
   ingressClassName: public-nginx
+  tls:
+    - hosts:
+        - skala-chip-team10.skala25a.project.skala-ai.com
+      secretName: skala-chip-tls-secret
   rules:
     - host: skala-chip-team10.skala25a.project.skala-ai.com
       http:
