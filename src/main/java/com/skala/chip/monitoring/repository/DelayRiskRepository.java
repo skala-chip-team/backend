@@ -10,13 +10,13 @@ import java.util.Optional;
 
 public interface DelayRiskRepository extends JpaRepository<DelayRisk, String> {
 
-    // 현재 대기열(process_queue)에 unit 이 남아있는 High/Critical 위험 수 (= 실제 감지 대상).
-    // 시뮬 자동 realtime 전환 트리거 판정에 사용.
+    // 감지된 High/Critical 위험 수 (큐 잔존 여부 무관).
+    // 시뮬 자동 realtime 전환 트리거 판정에 사용한다. 고속(fast) 진행 중에는 위험 unit 이
+    // 5초 폴링 간격 안에 process_queue 를 통과해버려 큐 잔존(actionable) 조건으로는 거의 못 잡으므로,
+    // "이번 run 에 High/Critical 이 하나라도 감지되면" 전환하도록 큐 조건을 두지 않는다.
     @Query("select count(d) from DelayRisk d "
-            + "where upper(d.riskLevel) in ('HIGH','CRITICAL') "
-            + "and exists (select 1 from ProcessQueue q "
-            + "            where q.unit.unitId = d.unit.unitId and q.stepId = d.stepId)")
-    long countActionableHighCritical();
+            + "where upper(d.riskLevel) in ('HIGH','CRITICAL')")
+    long countHighCritical();
 
     List<DelayRisk> findByRiskLevelIn(List<String> riskLevels);
 
