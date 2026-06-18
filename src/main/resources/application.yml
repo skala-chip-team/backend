@@ -12,7 +12,9 @@ spring:
       # 스키마는 AI 시뮬레이션/DB 측이 소유하므로 백엔드가 자동 DDL(update)로
       # 빈 테이블을 만들거나 스키마 불일치를 가리는 것을 막는다. (불일치 시 기동 실패)
       ddl-auto: ${JPA_DDL_AUTO:validate}
-    show-sql: true
+    # 기본 false: SQL 로그가 앱 로그(스케줄러 INFO 등)를 밀어내고 로테이션을 유발하므로 끈다.
+    # 디버깅 시 SHOW_SQL=true 로 일시적으로 켤 수 있다.
+    show-sql: ${SHOW_SQL:false}
     open-in-view: false
     properties:
       hibernate:
