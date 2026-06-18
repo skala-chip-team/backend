@@ -163,6 +163,24 @@ public class AiAgentClient {
         return false;
     }
 
+    /**
+     * 시뮬레이션을 fast 로 보장한다(realtime 의 반대).
+     * toggle 은 fast↔realtime 플립이라, 응답 preset 이 realtime 이 아니게 될 때까지 한 번 더 토글한다(최대 2회).
+     * @return fast 전환 성공 여부
+     */
+    public boolean ensureFast() {
+        for (int i = 0; i < 2; i++) {
+            Map<String, Object> res = toggleSpeed();
+            if (res == null) {
+                return false;
+            }
+            if (!"realtime".equals(res.get("preset"))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /** AI 서비스 호출 실패를 나타내는 런타임 예외. */
     public static class AiAgentException extends RuntimeException {
         public AiAgentException(String message, Throwable cause) {
