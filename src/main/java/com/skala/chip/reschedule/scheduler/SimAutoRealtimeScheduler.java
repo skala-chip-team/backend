@@ -14,8 +14,10 @@ import java.util.Map;
  * 위험 감지 시 시뮬레이션을 자동으로 realtime 으로 전환하는 스케줄러.
  *
  * 동작:
- *  - 시뮬이 fast 로 돌다가 "현재 큐에 남아있는 High/Critical 위험"이 처음 잡히면
- *    그 시점부터 realtime(/sim/speed/toggle)으로 전환한다. (unit 이 큐에 머무는 동안 감지·재조정·예측이 살아남게)
+ *  - 시뮬이 fast 로 돌다가 High/Critical 위험이 하나라도 감지되면
+ *    그 시점부터 realtime(/sim/speed/toggle)으로 전환한다. (이후 unit 이 큐에 머무는 동안 감지·재조정·예측이 살아남게)
+ *    NOTE: 고속에서는 위험 unit 이 5초 폴링 간격 안에 큐를 통과해버려 "큐 잔존" 조건으론 거의 못 잡으므로
+ *          큐 잔존 여부와 무관하게 감지 사실만으로 전환한다.
  *  - 한 run 당 1회만 전환한다(switchedThisRun 플래그). 시뮬이 재시작(sim_now 가 되감김)되면 플래그를 리셋한다.
  *  - 시뮬이 실행 중이 아니면 아무것도 하지 않는다.
  *
@@ -79,17 +81,17 @@ public class SimAutoRealtimeScheduler {
                 return; // 이번 run 은 이미 realtime 으로 전환함
             }
 
-            long actionable = delayRiskRepository.countActionableHighCritical();
-            if (actionable <= 0) {
+            long highCritical = delayRiskRepository.countHighCritical();
+            if (highCritical <= 0) {
                 return; // 아직 감지된 High/Critical 위험 없음 → fast 유지
             }
 
             boolean ok = aiAgentClient.ensureRealtime();
             switchedThisRun = true; // 재시도 폭주 방지: 성공/실패 무관하게 이번 run 1회로 제한
             if (ok) {
-                log.info("위험 감지({}건) → 시뮬레이션 realtime 자동 전환 (sim_now_min={})", actionable, simNow);
+                log.info("위험 감지({}건) → 시뮬레이션 realtime 자동 전환 (sim_now_min={})", highCritical, simNow);
             } else {
-                log.warn("위험 감지({}건)했으나 realtime 전환 실패(/sim/speed/toggle)", actionable);
+                log.warn("위험 감지({}건)했으나 realtime 전환 실패(/sim/speed/toggle)", highCritical);
             }
         } catch (Exception e) {
             // 한 주기 실패가 다음 주기를 막지 않도록 삼킨다.
