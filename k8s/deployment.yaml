@@ -21,9 +21,10 @@ spec:
           ports:
             - containerPort: 8080
           env:
-            - name: SPRING_DATASOURCE_URL
+            # application.yml 이 읽는 환경변수명(DB_URL/DB_USERNAME/DB_PASSWORD)과 통일.
+            - name: DB_URL
               value: jdbc:postgresql://postgres.skala3-finalproj-class3-team10.svc.cluster.local:5432/skala_chip
-            - name: SPRING_DATASOURCE_USERNAME
+            - name: DB_USERNAME
               value: admin
-            - name: SPRING_DATASOURCE_PASSWORD
+            - name: DB_PASSWORD
               value: admin1234
