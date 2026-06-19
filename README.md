@@ -121,8 +121,40 @@ export DB_PASSWORD=skala
 
 ### 2) Swagger
 ```
+# 로컬
 http://localhost:8080/swagger-ui/index.html
+
+# 배포 환경
+https://skala-chip-team10.skala25a.project.skala-ai.com/swagger-ui/index.html
 ```
+
+---
+
+## 배포 환경 · 서비스 주소
+
+Kubernetes(EKS) 네임스페이스 `skala3-finalproj-class3-team10` 에 배포되며, nginx Ingress(`public-nginx`) + cert-manager(Let's Encrypt) TLS 로 외부 노출합니다.
+
+**외부 도메인**: `https://skala-chip-team10.skala25a.project.skala-ai.com`
+
+| 경로 | 라우팅 대상 | 용도 |
+|---|---|---|
+| `/api` | `skala-chip-backend:80` | 백엔드 REST API |
+| `/health` | `skala-chip-backend:80` | 백엔드 헬스체크 |
+| `/swagger-ui`, `/v3/api-docs` | `skala-chip-backend:80` | 백엔드 Swagger |
+| `/sim` | `skala-chip-ai:8000` | AI 시뮬레이션 제어 (CORS 허용, 프론트에서 직접 호출) |
+| `/docs`, `/openapi.json` | `skala-chip-ai:8000` | AI(FastAPI) Swagger |
+
+> `/sim`·`/docs` 는 AI 서비스에 CORS 미들웨어가 없어 외부 오리진(예: Vercel 프론트)에서 직접 호출되도록 별도 Ingress(`ingress-sim.yaml`)에서 CORS 를 부여합니다.
+
+**클러스터 내부 서비스(ClusterIP)**
+
+| 서비스 | 주소 | 비고 |
+|---|---|---|
+| 백엔드 | `skala-chip-backend:80` → `:8080` | `service.yaml` |
+| AI 에이전트 | `skala-chip-ai:8000` | 백엔드 `AI_BASE_URL` 기본값 |
+| PostgreSQL | `postgres:5432` (db `skala_chip`) | 클러스터 계정 `admin/admin1234` |
+
+> 클러스터 DB 계정은 `admin/admin1234`, 로컬 `docker-compose` 기본값은 `skala/skala` 로 서로 다릅니다(위 "계정 주의" 참고).
 
 ---
 
