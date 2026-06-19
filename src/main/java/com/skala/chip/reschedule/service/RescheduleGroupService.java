@@ -43,6 +43,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -466,13 +467,15 @@ public class RescheduleGroupService {
         RescheduleOption.Delta avgQueueWaitMin = toDelta(delay.get("avg_queue_wait_min"));
         RescheduleOption.Delta deadlineViolation = toDelta(delay.get("deadline_violation_count"));
         RescheduleOption.Delta overallLoad = toDelta(load.get("overall"));
+        Map<String, RescheduleOption.Delta> loadByMachine = toDeltaMap(load.get("by_machine"));
 
         if (completedUnits == null && cumulativeDelayHr == null && avgQueueWaitMin == null
-                && deadlineViolation == null && overallLoad == null) {
+                && deadlineViolation == null && overallLoad == null && loadByMachine.isEmpty()) {
             return null;
         }
         return new RescheduleOption.MetricsComparison(
-                completedUnits, cumulativeDelayHr, avgQueueWaitMin, deadlineViolation, overallLoad);
+                completedUnits, cumulativeDelayHr, avgQueueWaitMin, deadlineViolation,
+                overallLoad, loadByMachine);
     }
 
     /** { before, after, delta } 묶음을 Delta 로. 셋 다 없으면 null. */
@@ -487,6 +490,21 @@ public class RescheduleGroupService {
             return null;
         }
         return new RescheduleOption.Delta(before, after, delta);
+    }
+
+    /** { machineId: { before, after, delta }, ... } → 장비별 Delta 맵. 비었으면 빈 맵. */
+    private Map<String, RescheduleOption.Delta> toDeltaMap(Object raw) {
+        if (!(raw instanceof Map<?, ?> m)) {
+            return Map.of();
+        }
+        Map<String, RescheduleOption.Delta> result = new LinkedHashMap<>();
+        for (Map.Entry<?, ?> e : m.entrySet()) {
+            RescheduleOption.Delta d = toDelta(e.getValue());
+            if (d != null) {
+                result.put(String.valueOf(e.getKey()), d);
+            }
+        }
+        return result;
     }
 
     @SuppressWarnings("unchecked")

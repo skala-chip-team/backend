@@ -1,6 +1,7 @@
 package com.skala.chip.reschedule.dto;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * 재조정 상세 페이지의 전략별 재조정안 카드.
@@ -49,7 +50,8 @@ public record RescheduleOption(
             Delta cumulativeDelayHr,       // 누적 지연(시간) 차이 — delay.cumulative_delay_hr
             Delta avgQueueWaitMin,         // 평균 대기(분) 차이 — delay.avg_queue_wait_min
             Delta deadlineViolationCount,  // 납기 위반 수 차이 — delay.deadline_violation_count
-            Delta overallLoad              // 전체 장비 부하율 차이 — load.overall
+            Delta overallLoad,             // 전체 장비 부하율 차이 — load.overall
+            Map<String, Delta> loadByMachine  // 장비별 부하율 차이 — load.by_machine (정지 장비 제외)
     ) {}
 
     /** before/after/delta 한 묶음. */
