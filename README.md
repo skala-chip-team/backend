@@ -91,7 +91,7 @@
 
 | 변수 | 기본값 | 설명 |
 |---|---|---|
-| `DB_URL` | `jdbc:postgresql://localhost:5432/skala_chip` | DB 접속 URL |
+| `DB_URL` | `jdbc:postgresql://localhost:5432/skala_chip` | DB 접속 URL. `localhost` 는 **로컬 기본값**이며, 운영(K8s)은 `deployment.yaml` 에서 `jdbc:postgresql://postgres.skala3-finalproj-class3-team10.svc.cluster.local:5432/skala_chip` 주입 |
 | `DB_USERNAME` | `admin` | DB 사용자 |
 | `DB_PASSWORD` | `admin1234` | DB 비밀번호 |
 | `JPA_DDL_AUTO` | `validate` | 스키마는 DB/AI 측이 소유 → 검증만 |
