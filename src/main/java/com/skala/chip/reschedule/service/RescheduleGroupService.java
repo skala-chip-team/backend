@@ -461,6 +461,7 @@ public class RescheduleGroupService {
         Map<String, Object> throughput = asMap(mcMap.get("throughput"));
         Map<String, Object> delay = asMap(mcMap.get("delay"));
         Map<String, Object> load = asMap(mcMap.get("load"));
+        Map<String, Object> flow = asMap(mcMap.get("flow"));
 
         RescheduleOption.Delta completedUnits = toDelta(throughput.get("completed_units"));
         RescheduleOption.Delta cumulativeDelayHr = toDelta(delay.get("cumulative_delay_hr"));
@@ -468,14 +469,16 @@ public class RescheduleGroupService {
         RescheduleOption.Delta deadlineViolation = toDelta(delay.get("deadline_violation_count"));
         RescheduleOption.Delta overallLoad = toDelta(load.get("overall"));
         Map<String, RescheduleOption.Delta> loadByMachine = toDeltaMap(load.get("by_machine"));
+        RescheduleOption.Delta flowLoss = toDelta(flow.get("completion_flow_loss_min"));
 
         if (completedUnits == null && cumulativeDelayHr == null && avgQueueWaitMin == null
-                && deadlineViolation == null && overallLoad == null && loadByMachine.isEmpty()) {
+                && deadlineViolation == null && overallLoad == null && loadByMachine.isEmpty()
+                && flowLoss == null) {
             return null;
         }
         return new RescheduleOption.MetricsComparison(
                 completedUnits, cumulativeDelayHr, avgQueueWaitMin, deadlineViolation,
-                overallLoad, loadByMachine);
+                overallLoad, loadByMachine, flowLoss);
     }
 
     /** { before, after, delta } 묶음을 Delta 로. 셋 다 없으면 null. */

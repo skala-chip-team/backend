@@ -51,7 +51,8 @@ public record RescheduleOption(
             Delta avgQueueWaitMin,         // 평균 대기(분) 차이 — delay.avg_queue_wait_min
             Delta deadlineViolationCount,  // 납기 위반 수 차이 — delay.deadline_violation_count
             Delta overallLoad,             // 전체 장비 부하율 차이 — load.overall
-            Map<String, Delta> loadByMachine  // 장비별 부하율 차이 — load.by_machine (정지 장비 제외)
+            Map<String, Delta> loadByMachine, // 장비별 부하율 차이 — load.by_machine (정지 장비 제외)
+            Delta flowLoss                 // 완성품 배출 흐름 손실(분) 차이 — flow.completion_flow_loss_min
     ) {}
 
     /** before/after/delta 한 묶음. */
